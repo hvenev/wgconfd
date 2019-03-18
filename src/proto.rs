@@ -7,11 +7,28 @@ use crate::ip::{Endpoint, Ipv4Net, Ipv6Net};
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Peer {
     pub public_key: String,
+    #[serde(default = "Vec::new")]
+    pub ipv4: Vec<Ipv4Net>,
+    #[serde(default = "Vec::new")]
+    pub ipv6: Vec<Ipv6Net>,
+}
+
+#[serde(deny_unknown_fields)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+pub struct Server {
+    #[serde(flatten)]
+    pub peer: Peer,
     pub endpoint: Endpoint,
     #[serde(default = "default_peer_keepalive")]
     pub keepalive: u32,
-    pub ipv4: Vec<Ipv4Net>,
-    pub ipv6: Vec<Ipv6Net>,
+}
+
+#[serde(deny_unknown_fields)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+pub struct RoadWarrior {
+    #[serde(flatten)]
+    pub peer: Peer,
+    pub base: String,
 }
 
 fn default_peer_keepalive() -> u32 {
@@ -20,7 +37,10 @@ fn default_peer_keepalive() -> u32 {
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct SourceConfig {
-    pub peers: Vec<Peer>,
+    #[serde(default = "Vec::new")]
+    pub servers: Vec<Server>,
+    #[serde(default = "Vec::new")]
+    pub road_warriors: Vec<RoadWarrior>,
 }
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]

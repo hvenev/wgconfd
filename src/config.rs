@@ -1,6 +1,5 @@
 use crate::ip::{Ipv4Set, Ipv6Set};
 use serde_derive;
-use std::collections::HashSet;
 
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
@@ -14,12 +13,11 @@ pub struct Source {
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct PeerConfig {
+    pub own_public_key: String,
     #[serde(default = "default_min_keepalive")]
     pub min_keepalive: u32,
     #[serde(default = "default_max_keepalive")]
     pub max_keepalive: u32,
-
-    pub omit_peers: HashSet<String>,
 }
 
 #[serde(deny_unknown_fields)]
@@ -44,6 +42,18 @@ pub struct Config {
     pub update: UpdateConfig,
 
     pub sources: Vec<Source>,
+}
+
+impl PeerConfig {
+    pub fn fix_keepalive(&self, mut k: u32) -> u32 {
+        if self.max_keepalive != 0 && (k == 0 || k > self.max_keepalive) {
+            k = self.max_keepalive;
+        }
+        if k != 0 && k < self.min_keepalive {
+            k = self.min_keepalive;
+        }
+        k
+    }
 }
 
 fn default_wg_command() -> String {

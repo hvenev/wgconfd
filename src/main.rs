@@ -38,21 +38,22 @@ pub struct Device {
 
 impl Device {
     pub fn new(c: config::Config) -> Device {
+        let dev = wg::Device::new(c.ifname, c.wg_command);
+        let current = wg::ConfigBuilder::new(&c.peers).build();
         Device {
-            dev: wg::Device::new(c.ifname, c.wg_command),
+            dev,
             peer_config: c.peers,
             update_config: c.update,
             sources: c.sources.into_iter().map(Source::new).collect(),
-            current: wg::Config::new(),
+            current,
         }
     }
 
     fn make_config(&self, ts: SystemTime) -> (wg::Config, Vec<wg::ConfigError>, SystemTime) {
-        let mut cfg = wg::Config::new();
         let mut next_update = ts + Duration::from_secs(3600);
-        let mut errs = vec![];
+        let mut sources: Vec<(&Source, &proto::SourceConfig)> = vec![];
         for src in self.sources.iter() {
-            if let Some(data) = &src.data {
+            if let Some(ref data) = src.data {
                 let sc = data
                     .next
                     .as_ref()
@@ -65,11 +66,24 @@ impl Device {
                         }
                     })
                     .unwrap_or(&data.config);
-                for peer in sc.peers.iter() {
-                    cfg.add_peer(&mut errs, &self.peer_config, &src.config, peer);
-                }
+                sources.push((src, sc));
             }
         }
+
+        let mut cfg = wg::ConfigBuilder::new(&self.peer_config);
+        let mut errs = vec![];
+        for (src, sc) in sources.iter() {
+            for peer in sc.servers.iter() {
+                cfg.add_server(&mut errs, &src.config, peer);
+            }
+        }
+        for (src, sc) in sources.iter() {
+            for peer in sc.road_warriors.iter() {
+                cfg.add_road_warrior(&mut errs, &src.config, peer);
+            }
+        }
+
+        let cfg = cfg.build();
         (cfg, errs, next_update)
     }
 

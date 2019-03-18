@@ -4,26 +4,23 @@ use hash_map::HashMap;
 use std::collections::hash_map;
 use std::{error, fmt, io};
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-struct Peer {
-    endpoint: Endpoint,
-    psk: Option<String>,
-    keepalive: u32,
-    ipv4: Vec<Ipv4Net>,
-    ipv6: Vec<Ipv6Net>,
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Config {
-    peers: HashMap<String, Peer>,
-}
-
 #[derive(Debug)]
 pub struct ConfigError {
     pub url: String,
     pub peer: String,
     pub important: bool,
     err: &'static str,
+}
+
+impl ConfigError {
+    fn new(err: &'static str, s: &config::Source, p: &proto::Peer, important: bool) -> Self {
+        ConfigError {
+            url: s.url.clone(),
+            peer: p.public_key.clone(),
+            important,
+            err,
+        }
+    }
 }
 
 impl error::Error for ConfigError {}
@@ -37,80 +34,71 @@ impl fmt::Display for ConfigError {
             } else {
                 "Misconfigured peer"
             },
-            self.peer, self.url, self.err
+            self.peer,
+            self.url,
+            self.err
         )
     }
 }
 
-impl Config {
-    pub fn new() -> Config {
-        Config {
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct Peer {
+    endpoint: Option<Endpoint>,
+    psk: Option<String>,
+    keepalive: u32,
+    ipv4: Vec<Ipv4Net>,
+    ipv6: Vec<Ipv6Net>,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Config {
+    peers: HashMap<String, Peer>,
+}
+
+pub struct ConfigBuilder<'a> {
+    peers: HashMap<String, Peer>,
+    pc: &'a config::PeerConfig,
+}
+
+impl<'a> ConfigBuilder<'a> {
+    pub fn new(pc: &'a config::PeerConfig) -> Self {
+        ConfigBuilder {
             peers: HashMap::new(),
+            pc,
         }
     }
 
-    pub fn add_peer(
-        &mut self,
-        errors: &mut Vec<ConfigError>,
-        c: &config::PeerConfig,
+    pub fn build(self) -> Config {
+        Config { peers: self.peers }
+    }
+
+    fn insert_with<'b>(
+        &'b mut self,
+        err: &mut Vec<ConfigError>,
         s: &config::Source,
         p: &proto::Peer,
-    ) {
-        if !valid_key(&p.public_key) {
-            errors.push(ConfigError {
-                url: s.url.clone(),
-                peer: p.public_key.clone(),
-                important: true,
-                err: "Invalid public key",
-            });
-            return;
-        }
-
-        if let Some(ref psk) = s.psk {
-            if !valid_key(psk) {
-                errors.push(ConfigError {
-                    url: s.url.clone(),
-                    peer: p.public_key.clone(),
-                    important: true,
-                    err: "Invalid preshared key",
-                });
-                return;
-            }
-        }
-
-        if c.omit_peers.contains(&p.public_key) {
-            return;
-        }
-
-        let ent = match self.peers.entry(p.public_key.clone()) {
+        update: impl for<'c> FnOnce(&'c mut Peer) -> (),
+    ) -> &'b mut Peer {
+        match self.peers.entry(p.public_key.clone()) {
             hash_map::Entry::Occupied(ent) => {
-                errors.push(ConfigError {
-                    url: s.url.clone(),
-                    peer: p.public_key.clone(),
-                    important: true,
-                    err: "Duplicate public key",
-                });
+                err.push(ConfigError::new("Duplicate public key", s, p, true));
                 ent.into_mut()
             }
             hash_map::Entry::Vacant(ent) => {
-                let mut keepalive = p.keepalive;
-                if c.max_keepalive != 0 && (keepalive == 0 || keepalive > c.max_keepalive) {
-                    keepalive = c.max_keepalive;
-                }
-                if keepalive != 0 && keepalive < c.min_keepalive {
-                    keepalive = c.min_keepalive;
-                }
-
-                ent.insert(Peer {
-                    endpoint: p.endpoint.clone(),
-                    psk: s.psk.clone(),
-                    keepalive,
+                let ent = ent.insert(Peer {
+                    endpoint: None,
+                    psk: None,
+                    keepalive: 0,
                     ipv4: vec![],
                     ipv6: vec![],
-                })
-            },
-        };
+                });
+                update(ent);
+                ent
+            }
+        }
+    }
 
+    fn add_peer(err: &mut Vec<ConfigError>, ent: &mut Peer, s: &config::Source, p: &proto::Peer) {
         let mut added = false;
         let mut removed = false;
 
@@ -132,24 +120,63 @@ impl Config {
         }
 
         if removed {
-            errors.push(ConfigError {
-                url: s.url.clone(),
-                peer: p.public_key.clone(),
-                important: !added,
-                err: if added {
-                    "Some IPs removed"
-                } else {
-                    "All IPs removed"
-                },
-            });
+            let msg = if added {
+                "Some IPs removed"
+            } else {
+                "All IPs removed"
+            };
+            err.push(ConfigError::new(msg, s, p, !added));
         }
     }
-}
 
-impl Default for Config {
-    #[inline]
-    fn default() -> Self {
-        Config::new()
+    pub fn add_server(
+        &mut self,
+        err: &mut Vec<ConfigError>,
+        s: &config::Source,
+        p: &proto::Server,
+    ) {
+        if !valid_key(&p.peer.public_key) {
+            err.push(ConfigError::new("Invalid public key", s, &p.peer, true));
+            return;
+        }
+
+        if p.peer.public_key == self.pc.own_public_key {
+            return;
+        }
+
+        let pc = self.pc;
+        let ent = self.insert_with(err, s, &p.peer, |ent| {
+            ent.psk = s.psk.clone();
+            ent.endpoint = Some(p.endpoint.clone());
+            ent.keepalive = pc.fix_keepalive(p.keepalive);
+        });
+
+        Self::add_peer(err, ent, s, &p.peer)
+    }
+
+    pub fn add_road_warrior(
+        &mut self,
+        err: &mut Vec<ConfigError>,
+        s: &config::Source,
+        p: &proto::RoadWarrior,
+    ) {
+        if !valid_key(&p.peer.public_key) {
+            err.push(ConfigError::new("Invalid public key", s, &p.peer, true));
+            return;
+        }
+
+        let ent = if p.base == self.pc.own_public_key {
+            self.insert_with(err, s, &p.peer, |_| {})
+        } else {
+            match self.peers.get_mut(&p.base) {
+                Some(ent) => ent,
+                None => {
+                    err.push(ConfigError::new("Unknown base peer", s, &p.peer, true));
+                    return;
+                }
+            }
+        };
+        Self::add_peer(err, ent, s, &p.peer)
     }
 }
 
@@ -174,17 +201,25 @@ impl Device {
         let mut psks = Vec::<&str>::new();
 
         for (pubkey, conf) in new.peers.iter() {
+            let old_endpoint;
             if let Some(old_peer) = old.peers.get(pubkey) {
                 if *old_peer == *conf {
                     continue;
                 }
+                old_endpoint = old_peer.endpoint.clone();
+            } else {
+                old_endpoint = None;
             }
+
             proc.arg("peer");
             proc.arg(pubkey);
 
-            // TODO: maybe skip endpoint?
-            proc.arg("endpoint");
-            proc.arg(format!("{}", conf.endpoint));
+            if old_endpoint != conf.endpoint {
+                if let Some(ref endpoint) = conf.endpoint {
+                    proc.arg("endpoint");
+                    proc.arg(format!("{}", endpoint));
+                }
+            }
 
             if let Some(psk) = &conf.psk {
                 proc.arg("preshared-key");
