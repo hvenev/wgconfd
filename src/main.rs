@@ -1,13 +1,13 @@
 #[macro_use]
 extern crate arrayref;
 
-use ::std::io;
-use ::std::time::{Duration, SystemTime, Instant};
+use std::io;
+use std::time::{Duration, Instant, SystemTime};
 
 mod bin;
+mod config;
 mod ip;
 mod proto;
-mod config;
 mod wg;
 
 struct Source {
@@ -53,14 +53,18 @@ impl Device {
         let mut errs = vec![];
         for src in self.sources.iter() {
             if let Some(data) = &src.data {
-                let sc = data.next.as_ref().and_then(|next| {
-                    if ts >= next.update_at {
-                        Some(&next.config)
-                    } else {
-                        next_update = next_update.min(next.update_at);
-                        None
-                    }
-                }).unwrap_or(&data.config);
+                let sc = data
+                    .next
+                    .as_ref()
+                    .and_then(|next| {
+                        if ts >= next.update_at {
+                            Some(&next.config)
+                        } else {
+                            next_update = next_update.min(next.update_at);
+                            None
+                        }
+                    })
+                    .unwrap_or(&data.config);
                 for peer in sc.peers.iter() {
                     cfg.add_peer(&mut errs, &self.peer_config, &src.config, peer);
                 }
@@ -107,7 +111,9 @@ impl Device {
 
         let sysnow = SystemTime::now();
         let (config, errors, upd_time) = self.make_config(sysnow);
-        let time_to_upd = upd_time.duration_since(sysnow).unwrap_or(Duration::from_secs(0));
+        let time_to_upd = upd_time
+            .duration_since(sysnow)
+            .unwrap_or(Duration::from_secs(0));
         next_update = next_update.min(now + time_to_upd);
 
         if config != self.current {
@@ -125,7 +131,7 @@ impl Device {
 }
 
 fn fetch_source(url: &str) -> io::Result<proto::Source> {
-    use ::curl::easy::Easy;
+    use curl::easy::Easy;
 
     let mut res = Vec::<u8>::new();
 
@@ -144,7 +150,10 @@ fn fetch_source(url: &str) -> io::Result<proto::Source> {
 
         let code = req.response_code()?;
         if code != 0 && code != 200 {
-            return Err(io::Error::new(io::ErrorKind::Other, format!("HTTP error {}", code)));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("HTTP error {}", code),
+            ));
         }
     }
 
@@ -154,8 +163,8 @@ fn fetch_source(url: &str) -> io::Result<proto::Source> {
 }
 
 fn load_config(path: &str) -> io::Result<config::Config> {
+    use serde_json;
     use std::fs;
-    use ::serde_json;
 
     let config_file = fs::File::open(path)?;
     let rd = io::BufReader::new(config_file);
@@ -164,15 +173,11 @@ fn load_config(path: &str) -> io::Result<config::Config> {
 }
 
 fn main() {
-    use ::std::{env, thread, process};
+    use std::{env, process, thread};
 
-    let args: Vec<String> = env::args().into_iter().collect();
+    let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        let arg0 = if args.len() >= 1 {
-            &args[0]
-        } else {
-            "wgconf"
-        };
+        let arg0 = if !args.is_empty() { &args[0] } else { "wgconf" };
         eprintln!("<1>Usage:");
         eprintln!("<1>    {} CONFIG", arg0);
         process::exit(1);

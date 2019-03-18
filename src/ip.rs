@@ -1,9 +1,9 @@
-use ::std::{error, fmt, iter, net};
-use ::std::net::{Ipv4Addr, Ipv6Addr};
-use ::std::iter::{IntoIterator, FromIterator};
-use ::std::str::{FromStr};
-use ::serde;
 use crate::bin;
+use serde;
+use std::iter::{FromIterator, IntoIterator};
+use std::net::{Ipv4Addr, Ipv6Addr};
+use std::str::FromStr;
+use std::{error, fmt, iter, net};
 
 #[derive(Debug)]
 pub struct NetParseError {}
@@ -33,6 +33,9 @@ macro_rules! per_proto {
                 if self.prefix_len == other.prefix_len {
                     return self.address == other.address;
                 }
+                if self.prefix_len == 0 {
+                    return true;
+                }
                 // self.prefix_len < other.prefix_len = BITS
                 let shift = Self::BITS - self.prefix_len;
                 let v1: $intt = self.address.into();
@@ -46,13 +49,13 @@ macro_rules! per_proto {
                 write!(f, "{}/{}", self.address, self.prefix_len)
             }
         }
-        
+
         impl FromStr for $nett {
             type Err = NetParseError;
             fn from_str(s: &str) -> Result<$nett, NetParseError> {
                 let (addr, pfx) = pfx_split(s)?;
                 let addr = $addrt::from_str(addr).map_err(|_| NetParseError {})?;
-        
+
                 let r = $nett {
                     address: addr,
                     prefix_len: pfx,
@@ -94,7 +97,7 @@ macro_rules! per_proto {
                     }
                     de.deserialize_str(NetVisitor)
                 } else {
-                    let buf = <[u8; $bytes+1] as serde::Deserialize>::deserialize(de)?;
+                    let buf = <[u8; $bytes + 1] as serde::Deserialize>::deserialize(de)?;
                     let r = $nett {
                         address: (*array_ref![&buf, 0, $bytes]).into(),
                         prefix_len: buf[$bytes],
@@ -144,8 +147,8 @@ macro_rules! per_proto {
                     }
                 };
                 let mut j = i;
-                if i != 0 && self.nets[i-1].contains(&net) {
-                    net = self.nets[i-1];
+                if i != 0 && self.nets[i - 1].contains(&net) {
+                    net = self.nets[i - 1];
                     i -= 1;
                 }
                 while j < self.nets.len() && net.contains(&self.nets[j]) {
@@ -154,8 +157,8 @@ macro_rules! per_proto {
                 loop {
                     if j < self.nets.len() && Self::siblings(&net, &self.nets[j]) {
                         j += 1;
-                    } else if i != 0 && Self::siblings(&self.nets[i-1], &net) {
-                        net = self.nets[i-1];
+                    } else if i != 0 && Self::siblings(&self.nets[i - 1], &net) {
+                        net = self.nets[i - 1];
                         i -= 1;
                     } else {
                         break;
@@ -171,7 +174,7 @@ macro_rules! per_proto {
                         if i == 0 {
                             return false;
                         }
-                        self.nets[i-1].contains(&net)
+                        self.nets[i - 1].contains(&net)
                     }
                     Ok(_) => true,
                 }
@@ -194,7 +197,7 @@ macro_rules! per_proto {
         }
 
         impl FromIterator<$nett> for $sett {
-            fn from_iter<I: IntoIterator<Item=$nett>>(it: I) -> $sett {
+            fn from_iter<I: IntoIterator<Item = $nett>>(it: I) -> $sett {
                 let mut r = $sett::new();
                 for net in it {
                     r.insert(net);
@@ -234,12 +237,12 @@ macro_rules! per_proto {
                 let mut i = 1;
                 for j in 1..len {
                     let mut net = s.nets[j];
-                    if i != 0 && s.nets[i-1].contains(&net) {
-                        net = s.nets[i-1];
+                    if s.nets[i - 1].contains(&net) {
+                        net = s.nets[i - 1];
                         i -= 1;
                     }
-                    while i != 0 && Self::siblings(&s.nets[i-1], &net) {
-                        net = s.nets[i-1];
+                    while i != 0 && Self::siblings(&s.nets[i - 1], &net) {
+                        net = s.nets[i - 1];
                         net.prefix_len -= 1;
                         i -= 1;
                     }
@@ -319,7 +322,7 @@ impl Ipv6Net {
 }
 
 fn pfx_split(s: &str) -> Result<(&str, u8), NetParseError> {
-    let i = match s.find("/") {
+    let i = match s.find('/') {
         Some(i) => i,
         None => {
             return Err(NetParseError {});
@@ -350,14 +353,13 @@ impl fmt::Display for Endpoint {
 impl FromStr for Endpoint {
     type Err = net::AddrParseError;
     fn from_str(s: &str) -> Result<Endpoint, net::AddrParseError> {
-        net::SocketAddr::from_str(s)
-            .map(|v| Endpoint {
-                address: match v.ip() {
-                    net::IpAddr::V4(a) => a.to_ipv6_mapped(),
-                    net::IpAddr::V6(a) => a,
-                },
-                port: v.port(),
-            })
+        net::SocketAddr::from_str(s).map(|v| Endpoint {
+            address: match v.ip() {
+                net::IpAddr::V4(a) => a.to_ipv6_mapped(),
+                net::IpAddr::V6(a) => a,
+            },
+            port: v.port(),
+        })
     }
 }
 

@@ -1,11 +1,10 @@
-use ::std::time::SystemTime;
-use ::serde_derive;
+use serde_derive;
+use std::time::SystemTime;
 
-use crate::ip::{Ipv4Net, Ipv6Net, Endpoint};
+use crate::ip::{Endpoint, Ipv4Net, Ipv6Net};
 
 #[serde(deny_unknown_fields)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Peer {
     pub public_key: String,
     pub endpoint: Endpoint,
@@ -19,14 +18,12 @@ fn default_peer_keepalive() -> u32 {
     0
 }
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct SourceConfig {
     pub peers: Vec<Peer>,
 }
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct SourceNextConfig {
     #[serde(with = "serde_utc")]
     pub update_at: SystemTime,
@@ -34,8 +31,7 @@ pub struct SourceNextConfig {
     pub config: SourceConfig,
 }
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Source {
     #[serde(flatten)]
     pub config: SourceConfig,
@@ -43,10 +39,10 @@ pub struct Source {
 }
 
 mod serde_utc {
-    use ::std::time::SystemTime;
-    use ::chrono::{DateTime, TimeZone, Utc, SecondsFormat};
-    use ::serde::*;
     use crate::bin;
+    use chrono::{DateTime, SecondsFormat, TimeZone, Utc};
+    use serde::*;
+    use std::time::SystemTime;
 
     pub fn serialize<S: Serializer>(t: &SystemTime, ser: S) -> Result<S::Ok, S::Error> {
         let t = DateTime::<Utc>::from(*t);

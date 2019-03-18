@@ -1,10 +1,9 @@
-use ::std::collections::HashSet;
-use ::serde_derive;
 use crate::ip::{Ipv4Set, Ipv6Set};
+use serde_derive;
+use std::collections::HashSet;
 
 #[serde(deny_unknown_fields)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Source {
     pub url: String,
     pub psk: Option<String>,
@@ -13,8 +12,7 @@ pub struct Source {
 }
 
 #[serde(deny_unknown_fields)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct PeerConfig {
     #[serde(default = "default_min_keepalive")]
     pub min_keepalive: u32,
@@ -25,8 +23,7 @@ pub struct PeerConfig {
 }
 
 #[serde(deny_unknown_fields)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct UpdateConfig {
     // Number of seconds between regular updates.
     #[serde(default = "default_refresh")]
@@ -34,8 +31,7 @@ pub struct UpdateConfig {
 }
 
 #[serde(deny_unknown_fields)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
-#[derive(Clone, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, Debug)]
 pub struct Config {
     pub ifname: String,
     #[serde(default = "default_wg_command")]
