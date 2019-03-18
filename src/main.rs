@@ -34,6 +34,7 @@ pub struct Device {
     update_config: config::UpdateConfig,
     sources: Vec<Source>,
     current: wg::Config,
+    curl_command: String,
 }
 
 impl Device {
@@ -46,6 +47,7 @@ impl Device {
             update_config: c.update,
             sources: c.sources.into_iter().map(Source::new).collect(),
             current,
+            curl_command: c.curl_command,
         }
     }
 
@@ -98,8 +100,7 @@ impl Device {
                 continue;
             }
 
-            let r = fetch_source(&src.config.url);
-            let r = match r {
+            let r = match fetch_source(&self.curl_command, &src.config.url) {
                 Ok(r) => {
                     eprintln!("<6>Updated [{}]", &src.config.url);
                     src.data = Some(r);
@@ -144,34 +145,24 @@ impl Device {
     }
 }
 
-fn fetch_source(url: &str) -> io::Result<proto::Source> {
-    use curl::easy::Easy;
+fn fetch_source(curl_command: &str, url: &str) -> io::Result<proto::Source> {
+    use std::process::{Command, Stdio};
 
-    let mut res = Vec::<u8>::new();
+    let out = Command::new(curl_command)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .arg("--fail")
+        .arg("--fail-early")
+        .arg("--")
+        .arg(url)
+        .output()?;
 
-    {
-        let mut req = Easy::new();
-        req.url(url)?;
-
-        {
-            let mut tr = req.transfer();
-            tr.write_function(|data| {
-                res.extend_from_slice(data);
-                Ok(data.len())
-            })?;
-            tr.perform()?;
-        }
-
-        let code = req.response_code()?;
-        if code != 0 && code != 200 {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("HTTP error {}", code),
-            ));
-        }
+    if !out.status.success() {
+        return Err(io::Error::new(io::ErrorKind::Other, format!("Failed to download [{}]", url)));
     }
 
-    let mut de = serde_json::Deserializer::from_slice(&res);
+    let mut de = serde_json::Deserializer::from_slice(&out.stdout);
     let r = serde::Deserialize::deserialize(&mut de)?;
     Ok(r)
 }

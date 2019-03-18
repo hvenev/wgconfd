@@ -10,7 +10,6 @@ serde = { version = "1.0.89" }
 serde_derive = { version = "1.0.89" }
 serde_json = { version = "1.0.39" }
 chrono = { version = "0.4.6", default-features = false }
-curl = { version = "0.4.17", default-features = false }
 
 [profile.release]
 panic = "abort"

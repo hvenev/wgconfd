@@ -34,6 +34,8 @@ pub struct Config {
     pub ifname: String,
     #[serde(default = "default_wg_command")]
     pub wg_command: String,
+    #[serde(default = "default_curl_command")]
+    pub curl_command: String,
 
     #[serde(flatten)]
     pub peers: PeerConfig,
@@ -58,6 +60,10 @@ impl PeerConfig {
 
 fn default_wg_command() -> String {
     "wg".to_owned()
+}
+
+fn default_curl_command() -> String {
+    "curl".to_owned()
 }
 
 fn default_min_keepalive() -> u32 {
