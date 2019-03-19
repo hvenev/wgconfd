@@ -17,7 +17,6 @@ pub struct Source {
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct PeerConfig {
-    pub own_public_key: String,
     #[serde(default = "default_min_keepalive")]
     pub min_keepalive: u32,
     #[serde(default = "default_max_keepalive")]
@@ -35,17 +34,11 @@ pub struct UpdateConfig {
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, Debug)]
 pub struct Config {
-    pub ifname: String,
-    #[serde(default = "default_wg_command")]
-    pub wg_command: String,
-    #[serde(default = "default_curl_command")]
-    pub curl_command: String,
+    #[serde(flatten)]
+    pub peer_config: PeerConfig,
 
     #[serde(flatten)]
-    pub peers: PeerConfig,
-
-    #[serde(flatten)]
-    pub update: UpdateConfig,
+    pub update_config: UpdateConfig,
 
     pub sources: Vec<Source>,
 }
@@ -60,14 +53,6 @@ impl PeerConfig {
         }
         k
     }
-}
-
-fn default_wg_command() -> String {
-    "wg".to_owned()
-}
-
-fn default_curl_command() -> String {
-    "curl".to_owned()
 }
 
 fn default_min_keepalive() -> u32 {

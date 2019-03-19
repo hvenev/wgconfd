@@ -8,6 +8,10 @@ use hash_map::HashMap;
 use std::collections::hash_map;
 use std::{error, fmt, io};
 
+use std::env;
+use std::ffi::{OsStr, OsString};
+use std::process::{Command, Stdio};
+
 #[derive(Debug)]
 pub struct ConfigError {
     pub url: String,
@@ -59,15 +63,25 @@ pub struct Config {
     peers: HashMap<String, Peer>,
 }
 
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            peers: HashMap::new(),
+        }
+    }
+}
+
 pub struct ConfigBuilder<'a> {
     peers: HashMap<String, Peer>,
+    public_key: &'a str,
     pc: &'a config::PeerConfig,
 }
 
 impl<'a> ConfigBuilder<'a> {
-    pub fn new(pc: &'a config::PeerConfig) -> Self {
+    pub fn new(public_key: &'a str, pc: &'a config::PeerConfig) -> Self {
         ConfigBuilder {
             peers: HashMap::new(),
+            public_key,
             pc,
         }
     }
@@ -144,7 +158,7 @@ impl<'a> ConfigBuilder<'a> {
             return;
         }
 
-        if p.peer.public_key == self.pc.own_public_key {
+        if p.peer.public_key == self.public_key {
             return;
         }
 
@@ -169,7 +183,7 @@ impl<'a> ConfigBuilder<'a> {
             return;
         }
 
-        let ent = if p.base == self.pc.own_public_key {
+        let ent = if p.base == self.public_key {
             self.insert_with(err, s, &p.peer, |_| {})
         } else {
             match self.peers.get_mut(&p.base) {
@@ -186,18 +200,49 @@ impl<'a> ConfigBuilder<'a> {
 
 pub struct Device {
     ifname: String,
-    wg_command: String,
 }
 
 impl Device {
-    pub fn new(ifname: String, wg_command: String) -> Self {
-        Device { ifname, wg_command }
+    pub fn new(ifname: String) -> io::Result<Self> {
+        Ok(Device { ifname })
+    }
+
+    pub fn wg_command() -> Command {
+        let wg = match env::var_os("WG") {
+            None => OsString::new(),
+            Some(v) => v,
+        };
+
+        Command::new(if wg.is_empty() {
+            OsStr::new("wg")
+        } else {
+            wg.as_os_str()
+        })
+    }
+
+    pub fn get_public_key(&self) -> io::Result<String> {
+        let mut proc = Device::wg_command();
+        proc.stdin(Stdio::null());
+        proc.stdout(Stdio::piped());
+        proc.arg("show");
+        proc.arg(&self.ifname);
+        proc.arg("public-key");
+
+        let r = proc.output()?;
+        if !r.status.success() {
+            return Err(io::Error::new(io::ErrorKind::Other, "Child process failed"));
+        }
+
+        let mut out = r.stdout;
+        if out.ends_with(b"\n") {
+            out.remove(out.len() - 1);
+        }
+        String::from_utf8(out)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid public key"))
     }
 
     pub fn apply_diff(&mut self, old: &Config, new: &Config) -> io::Result<()> {
-        use std::process::{Command, Stdio};
-
-        let mut proc = Command::new(&self.wg_command);
+        let mut proc = Device::wg_command();
         proc.stdin(Stdio::piped());
         proc.arg("set");
         proc.arg(&self.ifname);

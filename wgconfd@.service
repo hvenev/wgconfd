@@ -1,0 +1,15 @@
+[Unit]
+Description=Configure WireGuard interface
+Wants=network-pre.target
+Before=network-pre.target nftables.service systemd-networkd.service NetworkManager.service
+
+[Service]
+Type=simple
+CapabilityBoundingSet=CAP_NET_ADMIN
+ExecStartPre=/usr/bin/wg setconf %i /etc/wireguard/%i.conf
+ExecStart=/usr/local/bin/wgconfd %i /etc/wireguard/%i.json
+StandardError=journal
+SyslogLevelPrefix=true
+
+[Install]
+WantedBy=multi-user.target
