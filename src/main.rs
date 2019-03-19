@@ -204,13 +204,19 @@ fn fetch_source(url: &str) -> io::Result<proto::Source> {
 }
 
 fn load_config(path: &str) -> io::Result<config::Config> {
-    use serde_json;
+    use toml;
     use std::fs;
 
-    let config_file = fs::File::open(path)?;
-    let rd = io::BufReader::new(config_file);
-    let mut de = serde_json::Deserializer::from_reader(rd);
-    Ok(serde::Deserialize::deserialize(&mut de)?)
+    let mut data = String::new();
+    {
+        use io::Read;
+        let mut config_file = fs::File::open(path)?;
+        config_file.read_to_string(&mut data)?;
+    }
+    let mut de = toml::Deserializer::new(&data);
+    serde::Deserialize::deserialize(&mut de).map_err(|e| {
+        io::Error::new(io::ErrorKind::InvalidData, e)
+    })
 }
 
 fn main() {

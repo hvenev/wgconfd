@@ -40,6 +40,7 @@ pub struct Config {
     #[serde(flatten)]
     pub update_config: UpdateConfig,
 
+    #[serde(rename = "source")]
     pub sources: Vec<Source>,
 }
 

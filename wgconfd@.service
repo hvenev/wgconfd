@@ -7,7 +7,7 @@ Before=network-pre.target nftables.service systemd-networkd.service NetworkManag
 Type=simple
 CapabilityBoundingSet=CAP_NET_ADMIN
 ExecStartPre=/usr/bin/wg setconf %i /etc/wireguard/%i.conf
-ExecStart=/usr/local/bin/wgconfd %i /etc/wireguard/%i.json
+ExecStart=/usr/local/bin/wgconfd %i /etc/wireguard/%i.toml
 StandardError=journal
 SyslogLevelPrefix=true
 
