@@ -2,15 +2,15 @@
 //
 // See COPYING.
 
+use crate::ip::{Ipv4Net, Ipv6Net};
+use crate::model::{Key, Endpoint};
 use serde_derive;
 use std::time::SystemTime;
-
-use crate::ip::{Endpoint, Ipv4Net, Ipv6Net};
 
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Peer {
-    pub public_key: String,
+    pub public_key: Key,
     #[serde(default = "Vec::new")]
     pub ipv4: Vec<Ipv4Net>,
     #[serde(default = "Vec::new")]
@@ -32,11 +32,7 @@ pub struct Server {
 pub struct RoadWarrior {
     #[serde(flatten)]
     pub peer: Peer,
-    pub base: String,
-}
-
-fn default_peer_keepalive() -> u32 {
-    0
+    pub base: Key,
 }
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
@@ -62,10 +58,16 @@ pub struct Source {
     pub next: Option<SourceNextConfig>,
 }
 
+#[inline]
+fn default_peer_keepalive() -> u32 {
+    0
+}
+
 mod serde_utc {
     use crate::bin;
     use chrono::{DateTime, SecondsFormat, TimeZone, Utc};
     use serde::*;
+    use std::fmt;
     use std::time::SystemTime;
 
     pub fn serialize<S: Serializer>(t: &SystemTime, ser: S) -> Result<S::Ok, S::Error> {
@@ -83,9 +85,19 @@ mod serde_utc {
 
     pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<SystemTime, D::Error> {
         if de.is_human_readable() {
-            let s: String = String::deserialize(de)?;
-            let t = DateTime::parse_from_rfc3339(&s).map_err(de::Error::custom)?;
-            Ok(t.into())
+            struct RFC3339Visitor;
+            impl<'de> serde::de::Visitor<'de> for RFC3339Visitor {
+                type Value = SystemTime;
+
+                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    f.write_str("RFC3339 time")
+                }
+
+                fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> {
+                    DateTime::parse_from_rfc3339(s).map_err(de::Error::custom).map(SystemTime::from)
+                }
+            }
+            de.deserialize_str(RFC3339Visitor)
         } else {
             let mut buf = <[u8; 12]>::deserialize(de)?;
             let (buf_secs, buf_nanos) = array_refs![&mut buf, 8, 4];

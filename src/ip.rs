@@ -2,20 +2,20 @@
 //
 // See COPYING.
 
-use crate::bin;
 use serde;
 use std::iter::{FromIterator, IntoIterator};
-use std::net::{Ipv4Addr, Ipv6Addr};
+pub use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
-use std::{error, fmt, iter, net};
+use std::{error, fmt, iter};
 
 #[derive(Debug)]
-pub struct NetParseError {}
+pub struct NetParseError;
 
 impl error::Error for NetParseError {}
 impl fmt::Display for NetParseError {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid IP network")
+        write!(f, "Invalid address")
     }
 }
 
@@ -49,6 +49,7 @@ macro_rules! per_proto {
         }
 
         impl fmt::Display for $nett {
+            #[inline]
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 write!(f, "{}/{}", self.address, self.prefix_len)
             }
@@ -58,14 +59,14 @@ macro_rules! per_proto {
             type Err = NetParseError;
             fn from_str(s: &str) -> Result<$nett, NetParseError> {
                 let (addr, pfx) = pfx_split(s)?;
-                let addr = $addrt::from_str(addr).map_err(|_| NetParseError {})?;
+                let addr = $addrt::from_str(addr).map_err(|_| NetParseError)?;
 
                 let r = $nett {
                     address: addr,
                     prefix_len: pfx,
                 };
                 if !r.is_valid() {
-                    return Err(NetParseError {});
+                    return Err(NetParseError);
                 }
                 Ok(r)
             }
@@ -74,7 +75,7 @@ macro_rules! per_proto {
         impl serde::Serialize for $nett {
             fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
                 if ser.is_human_readable() {
-                    ser.serialize_str(&format!("{}", self))
+                    ser.collect_str(self)
                 } else {
                     let mut buf = [0u8; $bytes + 1];
                     *array_mut_ref![&mut buf, 0, $bytes] = self.address.octets();
@@ -91,10 +92,12 @@ macro_rules! per_proto {
                     impl<'de> serde::de::Visitor<'de> for NetVisitor {
                         type Value = $nett;
 
+                        #[inline]
                         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
                             f.write_str($expecting)
                         }
 
+                        #[inline]
                         fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> {
                             s.parse().map_err(E::custom)
                         }
@@ -107,7 +110,7 @@ macro_rules! per_proto {
                         prefix_len: buf[$bytes],
                     };
                     if r.is_valid() {
-                        return Err(serde::de::Error::custom(NetParseError {}));
+                        return Err(serde::de::Error::custom(NetParseError));
                     }
                     Ok(r)
                 }
@@ -201,6 +204,7 @@ macro_rules! per_proto {
         }
 
         impl FromIterator<$nett> for $sett {
+            #[inline]
             fn from_iter<I: IntoIterator<Item = $nett>>(it: I) -> $sett {
                 let mut r = $sett::new();
                 for net in it {
@@ -273,12 +277,14 @@ macro_rules! per_proto {
         }
 
         impl serde::Serialize for $sett {
+            #[inline]
             fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
                 <Vec<$nett> as serde::Serialize>::serialize(&self.nets, ser)
             }
         }
 
         impl<'de> serde::Deserialize<'de> for $sett {
+            #[inline]
             fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
                 <Vec<$nett> as serde::Deserialize>::deserialize(de).map($sett::from)
             }
@@ -329,81 +335,10 @@ fn pfx_split(s: &str) -> Result<(&str, u8), NetParseError> {
     let i = match s.find('/') {
         Some(i) => i,
         None => {
-            return Err(NetParseError {});
+            return Err(NetParseError);
         }
     };
     let (addr, pfx) = s.split_at(i);
-    let pfx = u8::from_str(&pfx[1..]).map_err(|_| NetParseError {})?;
+    let pfx = u8::from_str(&pfx[1..]).map_err(|_| NetParseError)?;
     Ok((addr, pfx))
-}
-
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct Endpoint {
-    pub address: Ipv6Addr,
-    pub port: u16,
-}
-
-impl fmt::Display for Endpoint {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.address.segments()[5] == 0xffff {
-            write!(f, "{}:", self.address.to_ipv4().unwrap())?;
-        } else {
-            write!(f, "[{}]:", self.address)?;
-        }
-        write!(f, "{}", self.port)
-    }
-}
-
-impl FromStr for Endpoint {
-    type Err = net::AddrParseError;
-    fn from_str(s: &str) -> Result<Endpoint, net::AddrParseError> {
-        net::SocketAddr::from_str(s).map(|v| Endpoint {
-            address: match v.ip() {
-                net::IpAddr::V4(a) => a.to_ipv6_mapped(),
-                net::IpAddr::V6(a) => a,
-            },
-            port: v.port(),
-        })
-    }
-}
-
-impl serde::Serialize for Endpoint {
-    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-        if ser.is_human_readable() {
-            ser.serialize_str(&format!("{}", self))
-        } else {
-            let mut buf = [0u8; 16 + 2];
-            let (buf_addr, buf_port) = mut_array_refs![&mut buf, 16, 2];
-            *buf_addr = self.address.octets();
-            *buf_port = crate::bin::u16_to_be(self.port);
-            ser.serialize_bytes(&buf)
-        }
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for Endpoint {
-    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-        if de.is_human_readable() {
-            struct EndpointVisitor;
-            impl<'de> serde::de::Visitor<'de> for EndpointVisitor {
-                type Value = Endpoint;
-
-                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    f.write_str("ip:port")
-                }
-
-                fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> {
-                    s.parse().map_err(E::custom)
-                }
-            }
-            de.deserialize_str(EndpointVisitor)
-        } else {
-            let buf = <[u8; 16 + 2] as serde::Deserialize>::deserialize(de)?;
-            let (buf_addr, buf_port) = array_refs![&buf, 16, 2];
-            Ok(Endpoint {
-                address: (*buf_addr).into(),
-                port: bin::u16_from_be(*buf_port),
-            })
-        }
-    }
 }

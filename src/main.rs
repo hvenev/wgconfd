@@ -9,8 +9,10 @@ use std::io;
 use std::time::{Duration, Instant, SystemTime};
 
 mod bin;
+mod builder;
 mod config;
 mod ip;
+mod model;
 mod proto;
 mod wg;
 
@@ -22,6 +24,7 @@ struct Source {
 }
 
 impl Source {
+    #[inline]
     fn new(config: config::Source) -> Source {
         Source {
             config,
@@ -37,7 +40,7 @@ pub struct Device {
     peer_config: config::PeerConfig,
     update_config: config::UpdateConfig,
     sources: Vec<Source>,
-    current: wg::Config,
+    current: model::Config,
 }
 
 impl Device {
@@ -49,15 +52,15 @@ impl Device {
             peer_config: c.peer_config,
             update_config: c.update_config,
             sources: c.sources.into_iter().map(Source::new).collect(),
-            current: wg::Config::default(),
+            current: model::Config::default(),
         })
     }
 
     fn make_config(
         &self,
-        public_key: &str,
+        public_key: model::Key,
         ts: SystemTime,
-    ) -> (wg::Config, Vec<wg::ConfigError>, SystemTime) {
+    ) -> (model::Config, Vec<builder::ConfigError>, SystemTime) {
         let mut t_cfg = ts + Duration::from_secs(1 << 30);
         let mut sources: Vec<(&Source, &proto::SourceConfig)> = vec![];
         for src in self.sources.iter() {
@@ -78,20 +81,21 @@ impl Device {
             }
         }
 
-        let mut cfg = wg::ConfigBuilder::new(public_key, &self.peer_config);
-        let mut errs = vec![];
+        let mut cfg = builder::ConfigBuilder::new(public_key, &self.peer_config);
+
         for (src, sc) in sources.iter() {
             for peer in sc.servers.iter() {
-                cfg.add_server(&mut errs, &src.config, peer);
-            }
-        }
-        for (src, sc) in sources.iter() {
-            for peer in sc.road_warriors.iter() {
-                cfg.add_road_warrior(&mut errs, &src.config, peer);
+                cfg.add_server(&src.config, peer);
             }
         }
 
-        let cfg = cfg.build();
+        for (src, sc) in sources.iter() {
+            for peer in sc.road_warriors.iter() {
+                cfg.add_road_warrior(&src.config, peer);
+            }
+        }
+
+        let (cfg, errs) = cfg.build();
         (cfg, errs, t_cfg)
     }
 
@@ -135,7 +139,7 @@ impl Device {
         let now = Instant::now();
         let sysnow = SystemTime::now();
         let public_key = self.dev.get_public_key()?;
-        let (config, errors, t_cfg) = self.make_config(&public_key, sysnow);
+        let (config, errors, t_cfg) = self.make_config(public_key, sysnow);
         let time_to_cfg = t_cfg
             .duration_since(sysnow)
             .unwrap_or(Duration::from_secs(0));

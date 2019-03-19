@@ -3,13 +3,14 @@
 // See COPYING.
 
 use crate::ip::{Ipv4Set, Ipv6Set};
+use crate::model::{Key};
 use serde_derive;
 
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Source {
     pub url: String,
-    pub psk: Option<String>,
+    pub psk: Option<Key>,
     pub ipv4: Ipv4Set,
     pub ipv6: Ipv6Set,
 }
@@ -56,14 +57,17 @@ impl PeerConfig {
     }
 }
 
+#[inline]
 fn default_min_keepalive() -> u32 {
     10
 }
 
+#[inline]
 fn default_max_keepalive() -> u32 {
     0
 }
 
+#[inline]
 fn default_refresh_sec() -> u32 {
     1200
 }
