@@ -46,6 +46,7 @@ pub struct Device {
 impl Device {
     pub fn new(ifname: String, c: config::Config) -> io::Result<Device> {
         let dev = wg::Device::new(ifname)?;
+        let _ = dev.get_public_key()?;
 
         Ok(Device {
             dev,
