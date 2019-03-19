@@ -132,7 +132,7 @@ impl Device {
             src.next_update = now + b;
             t_refresh = t_refresh.min(src.next_update);
 
-            eprintln!("<3>Failed to update [{}], retrying after {:?}: {}", &src.config.url, b, &r);
+            eprintln!("<3>Failed to update [{}], retrying after {:.1?}: {}", &src.config.url, b, &r);
 
             src.backoff = Some((b + b / 3).min(refresh));
         }
@@ -156,7 +156,7 @@ impl Device {
         }
 
         Ok(if t_cfg < t_refresh {
-            eprintln!("<6>Next configuration update after {:?}", time_to_cfg);
+            eprintln!("<6>Next configuration update after {:.1?}", time_to_cfg);
             t_cfg
         } else if t_refresh > now {
             t_refresh
