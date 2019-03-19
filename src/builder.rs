@@ -3,9 +3,8 @@
 // See COPYING.
 
 use crate::{config, model, proto};
-use std::{error, fmt};
 use std::collections::hash_map;
-
+use std::{error, fmt};
 
 #[derive(Debug)]
 pub struct ConfigError {
@@ -68,11 +67,7 @@ impl<'a> ConfigBuilder<'a> {
     }
 
     #[inline]
-    pub fn add_server(
-        &mut self,
-        s: &config::Source,
-        p: &proto::Server,
-    ) {
+    pub fn add_server(&mut self, s: &config::Source, p: &proto::Server) {
         if p.peer.public_key == self.public_key {
             return;
         }
@@ -88,13 +83,14 @@ impl<'a> ConfigBuilder<'a> {
     }
 
     #[inline]
-    pub fn add_road_warrior(
-        &mut self,
-        s: &config::Source,
-        p: &proto::RoadWarrior,
-    ) {
+    pub fn add_road_warrior(&mut self, s: &config::Source, p: &proto::RoadWarrior) {
         if p.peer.public_key == self.public_key {
-            self.err.push(ConfigError::new("The local peer cannot be a road warrior", s, &p.peer, true));
+            self.err.push(ConfigError::new(
+                "The local peer cannot be a road warrior",
+                s,
+                &p.peer,
+                true,
+            ));
             return;
         }
 
@@ -104,7 +100,8 @@ impl<'a> ConfigBuilder<'a> {
             match self.c.peers.get_mut(&p.base) {
                 Some(ent) => ent,
                 None => {
-                    self.err.push(ConfigError::new("Unknown base peer", s, &p.peer, true));
+                    self.err
+                        .push(ConfigError::new("Unknown base peer", s, &p.peer, true));
                     return;
                 }
             }
@@ -140,7 +137,12 @@ fn insert_peer<'b>(
     }
 }
 
-fn add_peer(err: &mut Vec<ConfigError>, ent: &mut model::Peer, s: &config::Source, p: &proto::Peer) {
+fn add_peer(
+    err: &mut Vec<ConfigError>,
+    ent: &mut model::Peer,
+    s: &config::Source,
+    p: &proto::Peer,
+) {
     let mut added = false;
     let mut removed = false;
 

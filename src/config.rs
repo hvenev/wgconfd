@@ -3,7 +3,7 @@
 // See COPYING.
 
 use crate::ip::{Ipv4Set, Ipv6Set};
-use crate::model::{Key};
+use crate::model::Key;
 use serde_derive;
 
 #[serde(deny_unknown_fields)]

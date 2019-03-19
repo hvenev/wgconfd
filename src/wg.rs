@@ -2,10 +2,10 @@
 //
 // See COPYING.
 
-use crate::{model};
-use std::{env, io};
+use crate::model;
 use std::ffi::{OsStr, OsString};
 use std::process::{Command, Stdio};
+use std::{env, io};
 
 pub struct Device {
     ifname: String,

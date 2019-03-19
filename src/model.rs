@@ -2,11 +2,11 @@
 //
 // See COPYING.
 
-use base64;
 use crate::bin;
-use crate::ip::{Ipv4Addr, Ipv6Addr, Ipv4Net, Ipv6Net, NetParseError};
-use std::{fmt};
-use std::collections::{HashMap};
+use crate::ip::{Ipv4Addr, Ipv4Net, Ipv6Addr, Ipv6Net, NetParseError};
+use base64;
+use std::collections::HashMap;
+use std::fmt;
 use std::str::FromStr;
 
 pub type KeyParseError = base64::DecodeError;
@@ -28,7 +28,11 @@ impl Key {
 impl fmt::Display for Key {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", base64::display::Base64Display::with_config(&self.0, base64::STANDARD))
+        write!(
+            f,
+            "{}",
+            base64::display::Base64Display::with_config(&self.0, base64::STANDARD)
+        )
     }
 }
 
@@ -90,7 +94,7 @@ impl Endpoint {
     pub fn ipv4_address(&self) -> Option<Ipv4Addr> {
         let seg = self.address.octets();
         let (first, second) = array_refs![&seg, 12, 4];
-        if *first == [0,0,0,0,0,0,0,0,0,0,0xff,0xff] {
+        if *first == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff] {
             Some(Ipv4Addr::from(*second))
         } else {
             None

@@ -3,7 +3,7 @@
 // See COPYING.
 
 use crate::ip::{Ipv4Net, Ipv6Net};
-use crate::model::{Key, Endpoint};
+use crate::model::{Endpoint, Key};
 use serde_derive;
 use std::time::SystemTime;
 
@@ -94,7 +94,9 @@ mod serde_utc {
                 }
 
                 fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> {
-                    DateTime::parse_from_rfc3339(s).map_err(de::Error::custom).map(SystemTime::from)
+                    DateTime::parse_from_rfc3339(s)
+                        .map_err(de::Error::custom)
+                        .map(SystemTime::from)
                 }
             }
             de.deserialize_str(RFC3339Visitor)

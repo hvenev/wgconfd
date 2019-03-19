@@ -198,10 +198,7 @@ fn fetch_source(url: &str) -> io::Result<proto::Source> {
     if !out.status.success() {
         let msg = String::from_utf8_lossy(&out.stderr);
         let msg = msg.replace('\n', "; ");
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            msg,
-        ));
+        return Err(io::Error::new(io::ErrorKind::Other, msg));
     }
 
     let mut de = serde_json::Deserializer::from_slice(&out.stdout);
