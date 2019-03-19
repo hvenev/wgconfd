@@ -1,6 +1,6 @@
 [package]
 name = "wgconfd"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Hristo Venev <hristo@venev.name>"]
 edition = "2018"
 

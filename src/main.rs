@@ -123,8 +123,6 @@ impl Device {
                 Err(r) => r,
             };
 
-            eprintln!("<3>Failed to update [{}]: {}", &src.config.url, &r);
-
             let b = src.backoff.unwrap_or(if src.data.is_some() {
                 refresh / 3
             } else {
@@ -132,8 +130,10 @@ impl Device {
             });
             src.next_update = now + b;
             t_refresh = t_refresh.min(src.next_update);
-            let b = (b + b / 3).min(refresh);
-            src.backoff = Some(b);
+
+            eprintln!("<3>Failed to update [{}], retrying after {:?}: {}", &src.config.url, b, &r);
+
+            src.backoff = Some((b + b / 3).min(refresh));
         }
 
         let now = Instant::now();
@@ -158,9 +158,9 @@ impl Device {
             eprintln!("<6>Next configuration update after {:?}", time_to_cfg);
             t_cfg
         } else if t_refresh > now {
-            eprintln!("<6>Next refresh after {:?}", t_refresh.duration_since(now));
             t_refresh
         } else {
+            eprintln!("<4>Next refresh immediately?");
             now
         })
     }
