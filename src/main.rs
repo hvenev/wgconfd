@@ -1,3 +1,7 @@
+// Copyright 2019 Hristo Venev
+//
+// See COPYING.
+
 #[macro_use]
 extern crate arrayref;
 

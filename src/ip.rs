@@ -1,3 +1,7 @@
+// Copyright 2019 Hristo Venev
+//
+// See COPYING.
+
 use crate::bin;
 use serde;
 use std::iter::{FromIterator, IntoIterator};

@@ -1,3 +1,7 @@
+// Copyright 2019 Hristo Venev
+//
+// See COPYING.
+
 #[inline]
 pub fn i64_to_be(v: i64) -> [u8; 8] {
     u64_to_be(v as u64)

@@ -1,3 +1,7 @@
+// Copyright 2019 Hristo Venev
+//
+// See COPYING.
+
 use crate::ip::{Endpoint, Ipv4Net, Ipv6Net};
 use crate::{config, proto};
 use hash_map::HashMap;

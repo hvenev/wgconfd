@@ -1,3 +1,7 @@
+// Copyright 2019 Hristo Venev
+//
+// See COPYING.
+
 use crate::ip::{Ipv4Set, Ipv6Set};
 use serde_derive;
 

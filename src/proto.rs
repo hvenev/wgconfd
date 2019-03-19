@@ -1,3 +1,7 @@
+// Copyright 2019 Hristo Venev
+//
+// See COPYING.
+
 use serde_derive;
 use std::time::SystemTime;
 
