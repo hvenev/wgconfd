@@ -27,8 +27,8 @@ pub struct PeerConfig {
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct UpdateConfig {
     // Number of seconds between regular updates.
-    #[serde(default = "default_refresh")]
-    pub refresh_period: u32,
+    #[serde(default = "default_refresh_sec")]
+    pub refresh_sec: u32,
 }
 
 #[serde(deny_unknown_fields)]
@@ -64,6 +64,6 @@ fn default_max_keepalive() -> u32 {
     0
 }
 
-fn default_refresh() -> u32 {
+fn default_refresh_sec() -> u32 {
     1200
 }

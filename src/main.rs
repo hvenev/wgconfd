@@ -53,16 +53,12 @@ impl Device {
         })
     }
 
-    fn refresh_period(&self) -> Duration {
-        Duration::from_secs(u64::from(self.update_config.refresh_period))
-    }
-
     fn make_config(
         &self,
         public_key: &str,
         ts: SystemTime,
     ) -> (wg::Config, Vec<wg::ConfigError>, SystemTime) {
-        let mut t_cfg = ts + self.refresh_period();
+        let mut t_cfg = ts + Duration::from_secs(1 << 30);
         let mut sources: Vec<(&Source, &proto::SourceConfig)> = vec![];
         for src in self.sources.iter() {
             if let Some(ref data) = src.data {
@@ -100,7 +96,7 @@ impl Device {
     }
 
     pub fn update(&mut self) -> io::Result<Instant> {
-        let refresh = self.refresh_period();
+        let refresh = Duration::from_secs(u64::from(self.update_config.refresh_sec));
         let mut now = Instant::now();
         let mut t_refresh = now + refresh;
 
