@@ -200,8 +200,8 @@ fn fetch_source(url: &str) -> io::Result<proto::Source> {
 }
 
 fn load_config(path: &str) -> io::Result<config::Config> {
-    use toml;
     use std::fs;
+    use toml;
 
     let mut data = String::new();
     {
@@ -210,9 +210,8 @@ fn load_config(path: &str) -> io::Result<config::Config> {
         config_file.read_to_string(&mut data)?;
     }
     let mut de = toml::Deserializer::new(&data);
-    serde::Deserialize::deserialize(&mut de).map_err(|e| {
-        io::Error::new(io::ErrorKind::InvalidData, e)
-    })
+    serde::Deserialize::deserialize(&mut de)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
 fn main() {
