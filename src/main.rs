@@ -183,18 +183,24 @@ fn fetch_source(url: &str) -> io::Result<proto::Source> {
 
     proc.stdin(Stdio::null());
     proc.stdout(Stdio::piped());
-    proc.stderr(Stdio::null());
-    proc.arg("--fail");
+    proc.stderr(Stdio::piped());
+    proc.arg("-gsSfL");
     proc.arg("--fail-early");
+    proc.arg("--max-time");
+    proc.arg("10");
+    proc.arg("--max-filesize");
+    proc.arg("1M");
     proc.arg("--");
     proc.arg(url);
 
     let out = proc.output()?;
 
     if !out.status.success() {
+        let msg = String::from_utf8_lossy(&out.stderr);
+        let msg = msg.replace('\n', "; ");
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            format!("Failed to download [{}]", url),
+            msg,
         ));
     }
 
