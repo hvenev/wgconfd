@@ -2,8 +2,7 @@
 //
 // See COPYING.
 
-use crate::ip::{Ipv4Net, Ipv6Net};
-use crate::model::{Endpoint, Key};
+use crate::model::{Endpoint, Ipv4Net, Ipv6Net, Key};
 use serde_derive;
 use std::time::SystemTime;
 
@@ -11,9 +10,9 @@ use std::time::SystemTime;
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Peer {
     pub public_key: Key,
-    #[serde(default = "Vec::new")]
+    #[serde(default)]
     pub ipv4: Vec<Ipv4Net>,
-    #[serde(default = "Vec::new")]
+    #[serde(default)]
     pub ipv6: Vec<Ipv6Net>,
 }
 
@@ -23,7 +22,7 @@ pub struct Server {
     #[serde(flatten)]
     pub peer: Peer,
     pub endpoint: Endpoint,
-    #[serde(default = "default_peer_keepalive")]
+    #[serde(default)]
     pub keepalive: u32,
 }
 
@@ -37,9 +36,9 @@ pub struct RoadWarrior {
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct SourceConfig {
-    #[serde(default = "Vec::new")]
+    #[serde(default)]
     pub servers: Vec<Server>,
-    #[serde(default = "Vec::new")]
+    #[serde(default)]
     pub road_warriors: Vec<RoadWarrior>,
 }
 
@@ -58,13 +57,19 @@ pub struct Source {
     pub next: Option<SourceNextConfig>,
 }
 
-#[inline]
-fn default_peer_keepalive() -> u32 {
-    0
+impl Source {
+    pub fn empty() -> Source {
+        Source {
+            config: SourceConfig {
+                servers: vec![],
+                road_warriors: vec![],
+            },
+            next: None,
+        }
+    }
 }
 
 mod serde_utc {
-    use crate::bin;
     use chrono::{DateTime, SecondsFormat, TimeZone, Utc};
     use serde::*;
     use std::fmt;
@@ -77,8 +82,8 @@ mod serde_utc {
         } else {
             let mut buf = [0u8; 12];
             let (buf_secs, buf_nanos) = mut_array_refs![&mut buf, 8, 4];
-            *buf_secs = bin::i64_to_be(t.timestamp());
-            *buf_nanos = bin::u32_to_be(t.timestamp_subsec_nanos());
+            *buf_secs = t.timestamp().to_be_bytes();
+            *buf_nanos = t.timestamp_subsec_nanos().to_be_bytes();
             ser.serialize_bytes(&buf)
         }
     }
@@ -103,8 +108,8 @@ mod serde_utc {
         } else {
             let mut buf = <[u8; 12]>::deserialize(de)?;
             let (buf_secs, buf_nanos) = array_refs![&mut buf, 8, 4];
-            let secs = bin::i64_from_be(*buf_secs);
-            let nanos = bin::u32_from_be(*buf_nanos);
+            let secs = i64::from_be_bytes(*buf_secs);
+            let nanos = u32::from_be_bytes(*buf_nanos);
             Ok(Utc.timestamp(secs, nanos).into())
         }
     }

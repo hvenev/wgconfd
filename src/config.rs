@@ -2,8 +2,9 @@
 //
 // See COPYING.
 
-use crate::ip::{Ipv4Set, Ipv6Set};
-use crate::model::Key;
+use crate::model::{Ipv4Set, Ipv6Set, Key};
+use std::path::PathBuf;
+use std::collections::HashMap;
 use serde_derive;
 
 #[serde(deny_unknown_fields)]
@@ -13,6 +14,8 @@ pub struct Source {
     pub psk: Option<Key>,
     pub ipv4: Ipv4Set,
     pub ipv6: Ipv6Set,
+    #[serde(default)]
+    pub required: bool,
 }
 
 #[serde(deny_unknown_fields)]
@@ -20,7 +23,7 @@ pub struct Source {
 pub struct PeerConfig {
     #[serde(default = "default_min_keepalive")]
     pub min_keepalive: u32,
-    #[serde(default = "default_max_keepalive")]
+    #[serde(default)]
     pub max_keepalive: u32,
 }
 
@@ -35,6 +38,9 @@ pub struct UpdateConfig {
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, Debug)]
 pub struct Config {
+    pub cache_directory: Option<PathBuf>,
+    pub runtime_directory: Option<PathBuf>,
+
     #[serde(flatten)]
     pub peer_config: PeerConfig,
 
@@ -42,7 +48,7 @@ pub struct Config {
     pub update_config: UpdateConfig,
 
     #[serde(rename = "source")]
-    pub sources: Vec<Source>,
+    pub sources: HashMap<String, Source>,
 }
 
 impl PeerConfig {
@@ -60,11 +66,6 @@ impl PeerConfig {
 #[inline]
 fn default_min_keepalive() -> u32 {
     10
-}
-
-#[inline]
-fn default_max_keepalive() -> u32 {
-    0
 }
 
 #[inline]

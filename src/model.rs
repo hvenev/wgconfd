@@ -2,12 +2,13 @@
 //
 // See COPYING.
 
-use crate::bin;
-use crate::ip::{Ipv4Addr, Ipv4Net, Ipv6Addr, Ipv6Net, NetParseError};
 use base64;
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
+
+mod ip;
+pub use ip::*;
 
 pub type KeyParseError = base64::DecodeError;
 
@@ -142,7 +143,7 @@ impl serde::Serialize for Endpoint {
             let mut buf = [0u8; 16 + 2];
             let (buf_addr, buf_port) = mut_array_refs![&mut buf, 16, 2];
             *buf_addr = self.address.octets();
-            *buf_port = crate::bin::u16_to_be(self.port);
+            *buf_port = self.port.to_be_bytes();
             ser.serialize_bytes(&buf)
         }
     }
@@ -171,7 +172,7 @@ impl<'de> serde::Deserialize<'de> for Endpoint {
             let (buf_addr, buf_port) = array_refs![&buf, 16, 2];
             Ok(Endpoint {
                 address: (*buf_addr).into(),
-                port: bin::u16_from_be(*buf_port),
+                port: u16::from_be_bytes(*buf_port),
             })
         }
     }

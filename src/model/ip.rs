@@ -136,7 +136,7 @@ macro_rules! per_proto {
             }
 
             #[inline]
-            fn siblings(a: &$nett, b: &$nett) -> bool {
+            fn siblings(a: $nett, b: $nett) -> bool {
                 let pfx = a.prefix_len;
                 if b.prefix_len != pfx || pfx == 0 {
                     return false;
@@ -162,9 +162,9 @@ macro_rules! per_proto {
                     j += 1;
                 }
                 loop {
-                    if j < self.nets.len() && Self::siblings(&net, &self.nets[j]) {
+                    if j < self.nets.len() && Self::siblings(net, self.nets[j]) {
                         j += 1;
-                    } else if i != 0 && Self::siblings(&self.nets[i - 1], &net) {
+                    } else if i != 0 && Self::siblings(self.nets[i - 1], net) {
                         net = self.nets[i - 1];
                         i -= 1;
                     } else {
@@ -249,7 +249,7 @@ macro_rules! per_proto {
                         net = s.nets[i - 1];
                         i -= 1;
                     }
-                    while i != 0 && Self::siblings(&s.nets[i - 1], &net) {
+                    while i != 0 && Self::siblings(s.nets[i - 1], net) {
                         net = s.nets[i - 1];
                         net.prefix_len -= 1;
                         i -= 1;
@@ -296,7 +296,7 @@ per_proto!(Ipv4Net(Ipv4Addr; "IPv4 network"); u32(4); Ipv4Set);
 per_proto!(Ipv6Net(Ipv6Addr; "IPv6 network"); u128(16); Ipv6Set);
 
 impl Ipv4Net {
-    pub fn is_valid(&self) -> bool {
+    pub fn is_valid(self) -> bool {
         let pfx = self.prefix_len;
         if pfx > 32 {
             return false;
@@ -310,7 +310,7 @@ impl Ipv4Net {
 }
 
 impl Ipv6Net {
-    pub fn is_valid(&self) -> bool {
+    pub fn is_valid(self) -> bool {
         let pfx = self.prefix_len;
         if pfx > 128 {
             return false;

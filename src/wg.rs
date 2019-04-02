@@ -8,13 +8,15 @@ use std::process::{Command, Stdio};
 use std::{env, io};
 
 pub struct Device {
-    ifname: String,
+    ifname: OsString,
 }
 
 impl Device {
     #[inline]
-    pub fn new(ifname: String) -> io::Result<Self> {
-        Ok(Device { ifname })
+    pub fn new(ifname: OsString) -> io::Result<Self> {
+        let dev = Device { ifname };
+        let _ = dev.get_public_key()?;
+        Ok(dev)
     }
 
     pub fn wg_command() -> Command {

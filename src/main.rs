@@ -5,212 +5,19 @@
 #[macro_use]
 extern crate arrayref;
 
-use std::io;
-use std::time::{Duration, Instant, SystemTime};
+use std::{env, fs, io, process, thread};
+use std::time::Instant;
+use std::ffi::{OsStr, OsString};
+use toml;
 
-mod bin;
 mod builder;
-mod config;
-mod ip;
 mod model;
+mod config;
 mod proto;
 mod wg;
+mod manager;
 
-struct Source {
-    config: config::Source,
-    data: Option<proto::Source>,
-    next_update: Instant,
-    backoff: Option<Duration>,
-}
-
-impl Source {
-    #[inline]
-    fn new(config: config::Source) -> Source {
-        Source {
-            config,
-            data: None,
-            next_update: Instant::now(),
-            backoff: None,
-        }
-    }
-}
-
-pub struct Device {
-    dev: wg::Device,
-    peer_config: config::PeerConfig,
-    update_config: config::UpdateConfig,
-    sources: Vec<Source>,
-    current: model::Config,
-}
-
-impl Device {
-    pub fn new(ifname: String, c: config::Config) -> io::Result<Device> {
-        let dev = wg::Device::new(ifname)?;
-        let _ = dev.get_public_key()?;
-
-        Ok(Device {
-            dev,
-            peer_config: c.peer_config,
-            update_config: c.update_config,
-            sources: c.sources.into_iter().map(Source::new).collect(),
-            current: model::Config::default(),
-        })
-    }
-
-    fn make_config(
-        &self,
-        public_key: model::Key,
-        ts: SystemTime,
-    ) -> (model::Config, Vec<builder::ConfigError>, SystemTime) {
-        let mut t_cfg = ts + Duration::from_secs(1 << 30);
-        let mut sources: Vec<(&Source, &proto::SourceConfig)> = vec![];
-        for src in self.sources.iter() {
-            if let Some(ref data) = src.data {
-                let sc = data
-                    .next
-                    .as_ref()
-                    .and_then(|next| {
-                        if ts >= next.update_at {
-                            Some(&next.config)
-                        } else {
-                            t_cfg = t_cfg.min(next.update_at);
-                            None
-                        }
-                    })
-                    .unwrap_or(&data.config);
-                sources.push((src, sc));
-            }
-        }
-
-        let mut cfg = builder::ConfigBuilder::new(public_key, &self.peer_config);
-
-        for (src, sc) in sources.iter() {
-            for peer in sc.servers.iter() {
-                cfg.add_server(&src.config, peer);
-            }
-        }
-
-        for (src, sc) in sources.iter() {
-            for peer in sc.road_warriors.iter() {
-                cfg.add_road_warrior(&src.config, peer);
-            }
-        }
-
-        let (cfg, errs) = cfg.build();
-        (cfg, errs, t_cfg)
-    }
-
-    pub fn update(&mut self) -> io::Result<Instant> {
-        let refresh = Duration::from_secs(u64::from(self.update_config.refresh_sec));
-        let mut now = Instant::now();
-        let mut t_refresh = now + refresh;
-
-        for src in self.sources.iter_mut() {
-            if now < src.next_update {
-                t_refresh = t_refresh.min(src.next_update);
-                continue;
-            }
-
-            let r = fetch_source(&src.config.url);
-            now = Instant::now();
-            let r = match r {
-                Ok(r) => {
-                    eprintln!("<6>Updated [{}]", &src.config.url);
-                    src.data = Some(r);
-                    src.backoff = None;
-                    src.next_update = now + refresh;
-                    continue;
-                }
-                Err(r) => r,
-            };
-
-            let b = src.backoff.unwrap_or(if src.data.is_some() {
-                refresh / 3
-            } else {
-                Duration::from_secs(10).min(refresh / 10)
-            });
-            src.next_update = now + b;
-            t_refresh = t_refresh.min(src.next_update);
-
-            eprintln!("<3>Failed to update [{}], retrying after {:.1?}: {}", &src.config.url, b, &r);
-
-            src.backoff = Some((b + b / 3).min(refresh));
-        }
-
-        let now = Instant::now();
-        let sysnow = SystemTime::now();
-        let public_key = self.dev.get_public_key()?;
-        let (config, errors, t_cfg) = self.make_config(public_key, sysnow);
-        let time_to_cfg = t_cfg
-            .duration_since(sysnow)
-            .unwrap_or(Duration::from_secs(0));
-        let t_cfg = now + time_to_cfg;
-
-        if config != self.current {
-            eprintln!("<5>Applying configuration update");
-            for err in errors.iter() {
-                eprintln!("<{}>{}", if err.important { '4' } else { '5' }, err);
-            }
-            self.dev.apply_diff(&self.current, &config)?;
-            self.current = config;
-        }
-
-        Ok(if t_cfg < t_refresh {
-            eprintln!("<6>Next configuration update after {:.1?}", time_to_cfg);
-            t_cfg
-        } else if t_refresh > now {
-            t_refresh
-        } else {
-            eprintln!("<4>Next refresh immediately?");
-            now
-        })
-    }
-}
-
-fn fetch_source(url: &str) -> io::Result<proto::Source> {
-    use std::env;
-    use std::ffi::{OsStr, OsString};
-    use std::process::{Command, Stdio};
-
-    let curl = match env::var_os("CURL") {
-        None => OsString::new(),
-        Some(v) => v,
-    };
-    let mut proc = Command::new(if curl.is_empty() {
-        OsStr::new("curl")
-    } else {
-        curl.as_os_str()
-    });
-
-    proc.stdin(Stdio::null());
-    proc.stdout(Stdio::piped());
-    proc.stderr(Stdio::piped());
-    proc.arg("-gsSfL");
-    proc.arg("--fail-early");
-    proc.arg("--max-time");
-    proc.arg("10");
-    proc.arg("--max-filesize");
-    proc.arg("1M");
-    proc.arg("--");
-    proc.arg(url);
-
-    let out = proc.output()?;
-
-    if !out.status.success() {
-        let msg = String::from_utf8_lossy(&out.stderr);
-        let msg = msg.replace('\n', "; ");
-        return Err(io::Error::new(io::ErrorKind::Other, msg));
-    }
-
-    let mut de = serde_json::Deserializer::from_slice(&out.stdout);
-    let r = serde::Deserialize::deserialize(&mut de)?;
-    Ok(r)
-}
-
-fn load_config(path: &str) -> io::Result<config::Config> {
-    use std::fs;
-    use toml;
-
+fn load_config(path: &OsStr) -> io::Result<config::Config> {
     let mut data = String::new();
     {
         use io::Read;
@@ -222,24 +29,36 @@ fn load_config(path: &str) -> io::Result<config::Config> {
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
-fn main() {
-    use std::{env, process, thread};
+fn usage(argv0: &str) -> i32 {
+    eprintln!("<1>Invalid arguments. See `{} --help` for more information", argv0);
+    1
+}
 
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        let arg0 = if !args.is_empty() { &args[0] } else { "wgconf" };
-        eprintln!("<1>Usage:");
-        eprintln!("<1>    {} IFNAME CONFIG", arg0);
-        process::exit(1);
+fn help(argv0: &str) -> i32 {
+    println!("Usage:");
+    println!("    {} IFNAME CONFIG         - run daemon on iterface", argv0);
+    println!("    {} --check-source PATH   - validate source JSON", argv0);
+    1
+}
+
+fn maybe_get_var(out: &mut Option<impl From<OsString>>, var: impl AsRef<OsStr>) {
+    let var = var.as_ref();
+    if let Some(s) = env::var_os(var) {
+        env::remove_var(var);
+        *out = Some(s.into());
     }
+}
 
+fn run_daemon(argv0: String, args: Vec<OsString>) -> i32 {
+    if args.len() != 2 {
+        return usage(&argv0);
+    }
     let mut args = args.into_iter();
-    let _ = args.next().unwrap();
     let ifname = args.next().unwrap();
     let config_path = args.next().unwrap();
     assert!(args.next().is_none());
 
-    let config = match load_config(&config_path) {
+    let mut config = match load_config(&config_path) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("<1>Failed to load config: {}", e);
@@ -247,8 +66,11 @@ fn main() {
         }
     };
 
-    let mut dev = match Device::new(ifname, config) {
-        Ok(dev) => dev,
+    maybe_get_var(&mut config.cache_directory, "CACHE_DIRECTORY");
+    maybe_get_var(&mut config.runtime_directory, "RUNTIME_DIRECTORY");
+
+    let mut m = match manager::Manager::new(ifname, config) {
+        Ok(m) => m,
         Err(e) => {
             eprintln!("<1>Failed to open device: {}", e);
             process::exit(1);
@@ -256,7 +78,7 @@ fn main() {
     };
 
     loop {
-        let tm = match dev.update() {
+        let tm = match m.update() {
             Ok(t) => t,
             Err(e) => {
                 eprintln!("<1>{}", e);
@@ -269,4 +91,49 @@ fn main() {
             thread::sleep(sleep);
         }
     }
+}
+
+fn run_check_source(argv0: String, args: Vec<OsString>) -> i32 {
+    if args.len() != 1 {
+        usage(&argv0);
+    }
+    let mut args = args.into_iter();
+    let path = args.next().unwrap();
+    assert!(args.next().is_none());
+
+    match manager::load_source(&path) {
+        Ok(_) => {
+            println!("OK");
+            0
+        }
+        Err(e) => {
+            println!("{}", e);
+            1
+        }
+    }
+}
+
+fn main() -> () {
+    let mut iter_args = env::args_os();
+    let argv0 = iter_args.next().unwrap().to_string_lossy().into_owned();
+
+    let mut args = Vec::new();
+    let mut run: for<'a> fn(String, Vec<OsString>) -> i32 = run_daemon;
+    let mut parse_args = true;
+    for arg in iter_args {
+        if !parse_args || !arg.to_string_lossy().starts_with('-') {
+            args.push(arg);
+        } else if arg == "--" {
+            parse_args = false;
+        } else if arg == "-h" || arg == "--help" {
+            process::exit(help(&argv0));
+        } else if arg == "--check-source" {
+            run = run_check_source;
+            parse_args = false;
+        } else {
+            usage(&argv0);
+        }
+    }
+
+    process::exit(run(argv0, args));
 }
