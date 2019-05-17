@@ -16,8 +16,8 @@ pub type KeyParseError = base64::DecodeError;
 pub struct Key([u8; 32]);
 
 impl Key {
-    pub fn from_bytes(s: &[u8]) -> Result<Key, KeyParseError> {
-        let mut v = Key([0u8; 32]);
+    pub fn from_bytes(s: &[u8]) -> Result<Self, KeyParseError> {
+        let mut v = Self([0; 32]);
         let l = base64::decode_config_slice(s, base64::STANDARD, &mut v.0)?;
         if l != v.0.len() {
             return Err(base64::DecodeError::InvalidLength);
@@ -28,7 +28,7 @@ impl Key {
 
 impl fmt::Display for Key {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
@@ -40,8 +40,8 @@ impl fmt::Display for Key {
 impl FromStr for Key {
     type Err = KeyParseError;
     #[inline]
-    fn from_str(s: &str) -> Result<Key, base64::DecodeError> {
-        Key::from_bytes(s.as_bytes())
+    fn from_str(s: &str) -> Result<Self, base64::DecodeError> {
+        Self::from_bytes(s.as_bytes())
     }
 }
 
@@ -63,7 +63,7 @@ impl<'de> serde::Deserialize<'de> for Key {
                 type Value = Key;
 
                 #[inline]
-                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                     f.write_str("WireGuard key")
                 }
 
@@ -74,7 +74,7 @@ impl<'de> serde::Deserialize<'de> for Key {
             }
             de.deserialize_str(KeyVisitor)
         } else {
-            serde::Deserialize::deserialize(de).map(Key)
+            serde::Deserialize::deserialize(de).map(Self)
         }
     }
 }
@@ -109,7 +109,7 @@ impl Endpoint {
 }
 
 impl fmt::Display for Endpoint {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ipv4) = self.ipv4_address() {
             write!(f, "{}:", ipv4)?;
         } else {
@@ -121,11 +121,11 @@ impl fmt::Display for Endpoint {
 
 impl FromStr for Endpoint {
     type Err = NetParseError;
-    fn from_str(s: &str) -> Result<Endpoint, NetParseError> {
+    fn from_str(s: &str) -> Result<Self, NetParseError> {
         use std::net;
         net::SocketAddr::from_str(s)
             .map_err(|_| NetParseError)
-            .map(|v| Endpoint {
+            .map(|v| Self {
                 address: match v.ip() {
                     net::IpAddr::V4(a) => a.to_ipv6_mapped(),
                     net::IpAddr::V6(a) => a,
@@ -140,7 +140,7 @@ impl serde::Serialize for Endpoint {
         if ser.is_human_readable() {
             ser.collect_str(self)
         } else {
-            let mut buf = [0u8; 16 + 2];
+            let mut buf = [0_u8; 16 + 2];
             let (buf_addr, buf_port) = mut_array_refs![&mut buf, 16, 2];
             *buf_addr = self.address.octets();
             *buf_port = self.port.to_be_bytes();
@@ -157,7 +157,7 @@ impl<'de> serde::Deserialize<'de> for Endpoint {
                 type Value = Endpoint;
 
                 #[inline]
-                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                     f.write_str("IP:port")
                 }
 
@@ -170,7 +170,7 @@ impl<'de> serde::Deserialize<'de> for Endpoint {
         } else {
             let buf = <[u8; 16 + 2] as serde::Deserialize>::deserialize(de)?;
             let (buf_addr, buf_port) = array_refs![&buf, 16, 2];
-            Ok(Endpoint {
+            Ok(Self {
                 address: (*buf_addr).into(),
                 port: u16::from_be_bytes(*buf_port),
             })
@@ -194,8 +194,15 @@ pub struct Config {
 
 impl Default for Config {
     #[inline]
-    fn default() -> Config {
-        Config {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl Config {
+    #[inline]
+    pub fn empty() -> Self {
+        Self {
             peers: HashMap::new(),
         }
     }

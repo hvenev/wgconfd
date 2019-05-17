@@ -16,7 +16,7 @@ pub struct ConfigError {
 
 impl ConfigError {
     fn new(err: &'static str, s: &config::Source, p: &proto::Peer, important: bool) -> Self {
-        ConfigError {
+        Self {
             url: s.url.clone(),
             peer: p.public_key.clone(),
             important,
@@ -27,7 +27,7 @@ impl ConfigError {
 
 impl error::Error for ConfigError {}
 impl fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{} [{}] from [{}]: {}",
@@ -53,7 +53,7 @@ pub struct ConfigBuilder<'a> {
 impl<'a> ConfigBuilder<'a> {
     #[inline]
     pub fn new(public_key: model::Key, pc: &'a config::PeerConfig) -> Self {
-        ConfigBuilder {
+        Self {
             c: model::Config::default(),
             err: vec![],
             public_key,
@@ -96,15 +96,12 @@ impl<'a> ConfigBuilder<'a> {
 
         let ent = if p.base == self.public_key {
             insert_peer(&mut self.c, &mut self.err, s, &p.peer, |_| {})
+        } else if let Some(ent) = self.c.peers.get_mut(&p.base) {
+            ent
         } else {
-            match self.c.peers.get_mut(&p.base) {
-                Some(ent) => ent,
-                None => {
-                    self.err
-                        .push(ConfigError::new("Unknown base peer", s, &p.peer, true));
-                    return;
-                }
-            }
+            self.err
+                .push(ConfigError::new("Unknown base peer", s, &p.peer, true));
+            return;
         };
         add_peer(&mut self.err, ent, s, &p.peer)
     }
@@ -146,7 +143,7 @@ fn add_peer(
     let mut added = false;
     let mut removed = false;
 
-    for i in p.ipv4.iter() {
+    for i in &p.ipv4 {
         if s.ipv4.contains(i) {
             ent.ipv4.push(*i);
             added = true;
@@ -154,7 +151,7 @@ fn add_peer(
             removed = true;
         }
     }
-    for i in p.ipv6.iter() {
+    for i in &p.ipv6 {
         if s.ipv6.contains(i) {
             ent.ipv6.push(*i);
             added = true;

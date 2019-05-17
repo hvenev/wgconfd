@@ -14,7 +14,7 @@ pub struct Device {
 impl Device {
     #[inline]
     pub fn new(ifname: OsString) -> io::Result<Self> {
-        let dev = Device { ifname };
+        let dev = Self { ifname };
         let _ = dev.get_public_key()?;
         Ok(dev)
     }
@@ -33,7 +33,7 @@ impl Device {
     }
 
     pub fn get_public_key(&self) -> io::Result<model::Key> {
-        let mut proc = Device::wg_command();
+        let mut proc = Self::wg_command();
         proc.stdin(Stdio::null());
         proc.stdout(Stdio::piped());
         proc.arg("show");
@@ -54,14 +54,14 @@ impl Device {
     }
 
     pub fn apply_diff(&mut self, old: &model::Config, new: &model::Config) -> io::Result<()> {
-        let mut proc = Device::wg_command();
+        let mut proc = Self::wg_command();
         proc.stdin(Stdio::piped());
         proc.arg("set");
         proc.arg(&self.ifname);
 
         let mut psks = String::new();
 
-        for (pubkey, conf) in new.peers.iter() {
+        for (pubkey, conf) in &new.peers {
             let old_endpoint;
             if let Some(old_peer) = old.peers.get(pubkey) {
                 if *old_peer == *conf {
@@ -73,12 +73,12 @@ impl Device {
             }
 
             proc.arg("peer");
-            proc.arg(format!("{}", pubkey));
+            proc.arg(pubkey.to_string());
 
             if old_endpoint != conf.endpoint {
                 if let Some(ref endpoint) = conf.endpoint {
                     proc.arg("endpoint");
-                    proc.arg(format!("{}", endpoint));
+                    proc.arg(endpoint.to_string());
                 }
             }
 
@@ -94,13 +94,13 @@ impl Device {
             let mut ips = String::new();
             {
                 use std::fmt::Write;
-                for ip in conf.ipv4.iter() {
+                for ip in &conf.ipv4 {
                     if !ips.is_empty() {
                         ips.push(',');
                     }
                     write!(ips, "{}", ip).unwrap();
                 }
-                for ip in conf.ipv6.iter() {
+                for ip in &conf.ipv6 {
                     if !ips.is_empty() {
                         ips.push(',');
                     }
@@ -117,7 +117,7 @@ impl Device {
                 continue;
             }
             proc.arg("peer");
-            proc.arg(format!("{}", pubkey));
+            proc.arg(pubkey.to_string());
             proc.arg("remove");
         }
 

@@ -58,8 +58,8 @@ pub struct Source {
 }
 
 impl Source {
-    pub fn empty() -> Source {
-        Source {
+    pub fn empty() -> Self {
+        Self {
             config: SourceConfig {
                 servers: vec![],
                 road_warriors: vec![],
@@ -80,7 +80,7 @@ mod serde_utc {
         if ser.is_human_readable() {
             ser.serialize_str(&t.to_rfc3339_opts(SecondsFormat::Nanos, true))
         } else {
-            let mut buf = [0u8; 12];
+            let mut buf = [0_u8; 12];
             let (buf_secs, buf_nanos) = mut_array_refs![&mut buf, 8, 4];
             *buf_secs = t.timestamp().to_be_bytes();
             *buf_nanos = t.timestamp_subsec_nanos().to_be_bytes();
@@ -94,7 +94,7 @@ mod serde_utc {
             impl<'de> serde::de::Visitor<'de> for RFC3339Visitor {
                 type Value = SystemTime;
 
-                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                     f.write_str("RFC3339 time")
                 }
 

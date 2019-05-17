@@ -3,9 +3,9 @@
 // See COPYING.
 
 use crate::model::{Ipv4Set, Ipv6Set, Key};
-use std::path::PathBuf;
-use std::collections::HashMap;
 use serde_derive;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]

@@ -14,7 +14,7 @@ pub struct NetParseError;
 impl error::Error for NetParseError {}
 impl fmt::Display for NetParseError {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Invalid address")
     }
 }
@@ -30,7 +30,7 @@ macro_rules! per_proto {
         impl $nett {
             const BITS: u8 = $bytes * 8;
 
-            pub fn contains(&self, other: &$nett) -> bool {
+            pub fn contains(&self, other: &Self) -> bool {
                 if self.prefix_len > other.prefix_len {
                     return false;
                 }
@@ -50,18 +50,18 @@ macro_rules! per_proto {
 
         impl fmt::Display for $nett {
             #[inline]
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "{}/{}", self.address, self.prefix_len)
             }
         }
 
         impl FromStr for $nett {
             type Err = NetParseError;
-            fn from_str(s: &str) -> Result<$nett, NetParseError> {
+            fn from_str(s: &str) -> Result<Self, NetParseError> {
                 let (addr, pfx) = pfx_split(s)?;
                 let addr = $addrt::from_str(addr).map_err(|_| NetParseError)?;
 
-                let r = $nett {
+                let r = Self {
                     address: addr,
                     prefix_len: pfx,
                 };
@@ -77,7 +77,7 @@ macro_rules! per_proto {
                 if ser.is_human_readable() {
                     ser.collect_str(self)
                 } else {
-                    let mut buf = [0u8; $bytes + 1];
+                    let mut buf = [0_u8; $bytes + 1];
                     *array_mut_ref![&mut buf, 0, $bytes] = self.address.octets();
                     buf[$bytes] = self.prefix_len;
                     ser.serialize_bytes(&buf)
@@ -93,7 +93,7 @@ macro_rules! per_proto {
                         type Value = $nett;
 
                         #[inline]
-                        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                             f.write_str($expecting)
                         }
 
@@ -105,7 +105,7 @@ macro_rules! per_proto {
                     de.deserialize_str(NetVisitor)
                 } else {
                     let buf = <[u8; $bytes + 1] as serde::Deserialize>::deserialize(de)?;
-                    let r = $nett {
+                    let r = Self {
                         address: (*array_ref![&buf, 0, $bytes]).into(),
                         prefix_len: buf[$bytes],
                     };
@@ -125,14 +125,14 @@ macro_rules! per_proto {
         impl Default for $sett {
             #[inline]
             fn default() -> Self {
-                $sett::new()
+                Self::new()
             }
         }
 
         impl $sett {
             #[inline]
             pub fn new() -> Self {
-                $sett { nets: vec![] }
+                Self { nets: vec![] }
             }
 
             #[inline]
@@ -147,11 +147,10 @@ macro_rules! per_proto {
             }
 
             pub fn insert(&mut self, mut net: $nett) {
-                let mut i = match self.nets.binary_search(&net) {
-                    Err(i) => i,
-                    Ok(_) => {
-                        return;
-                    }
+                let mut i = if let Err(i) = self.nets.binary_search(&net) {
+                    i
+                } else {
+                    return;
                 };
                 let mut j = i;
                 if i != 0 && self.nets[i - 1].contains(&net) {
@@ -188,7 +187,7 @@ macro_rules! per_proto {
             }
 
             #[inline]
-            pub fn iter(&self) -> std::slice::Iter<$nett> {
+            pub fn iter(&self) -> std::slice::Iter<'_, $nett> {
                 self.nets.iter()
             }
         }
@@ -205,8 +204,8 @@ macro_rules! per_proto {
 
         impl FromIterator<$nett> for $sett {
             #[inline]
-            fn from_iter<I: IntoIterator<Item = $nett>>(it: I) -> $sett {
-                let mut r = $sett::new();
+            fn from_iter<I: IntoIterator<Item = $nett>>(it: I) -> Self {
+                let mut r = Self::new();
                 for net in it {
                     r.insert(net);
                 }
@@ -216,27 +215,27 @@ macro_rules! per_proto {
 
         impl<'a> From<$nett> for $sett {
             #[inline]
-            fn from(v: $nett) -> $sett {
-                $sett { nets: vec![v] }
+            fn from(v: $nett) -> Self {
+                Self { nets: vec![v] }
             }
         }
 
         impl<'a> From<[$nett; 1]> for $sett {
             #[inline]
-            fn from(v: [$nett; 1]) -> $sett {
-                $sett { nets: vec![v[0]] }
+            fn from(v: [$nett; 1]) -> Self {
+                Self { nets: vec![v[0]] }
             }
         }
 
         impl From<$sett> for Vec<$nett> {
-            fn from(v: $sett) -> Vec<$nett> {
+            fn from(v: $sett) -> Self {
                 v.nets
             }
         }
 
         impl From<Vec<$nett>> for $sett {
-            fn from(nets: Vec<$nett>) -> $sett {
-                let mut s = $sett { nets };
+            fn from(nets: Vec<$nett>) -> Self {
+                let mut s = Self { nets };
                 let len = s.nets.len();
                 if len == 0 {
                     return s;
@@ -264,14 +263,14 @@ macro_rules! per_proto {
 
         impl<'a> From<&'a [$nett]> for $sett {
             #[inline]
-            fn from(nets: &'a [$nett]) -> $sett {
+            fn from(nets: &'a [$nett]) -> Self {
                 Vec::from(nets).into()
             }
         }
 
         impl<'a> From<&'a mut [$nett]> for $sett {
             #[inline]
-            fn from(nets: &'a mut [$nett]) -> $sett {
+            fn from(nets: &'a mut [$nett]) -> Self {
                 Vec::from(nets).into()
             }
         }
@@ -286,7 +285,7 @@ macro_rules! per_proto {
         impl<'de> serde::Deserialize<'de> for $sett {
             #[inline]
             fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-                <Vec<$nett> as serde::Deserialize>::deserialize(de).map($sett::from)
+                <Vec<$nett> as serde::Deserialize>::deserialize(de).map(Self::from)
             }
         }
     };
@@ -332,11 +331,10 @@ impl Ipv6Net {
 }
 
 fn pfx_split(s: &str) -> Result<(&str, u8), NetParseError> {
-    let i = match s.find('/') {
-        Some(i) => i,
-        None => {
-            return Err(NetParseError);
-        }
+    let i = if let Some(i) = s.find('/') {
+        i
+    } else {
+        return Err(NetParseError);
     };
     let (addr, pfx) = s.split_at(i);
     let pfx = u8::from_str(&pfx[1..]).map_err(|_| NetParseError)?;

@@ -2,20 +2,22 @@
 //
 // See COPYING.
 
+#![deny(rust_2018_idioms)]
+
 #[macro_use]
 extern crate arrayref;
 
-use std::{env, fs, io, process, thread};
-use std::time::Instant;
 use std::ffi::{OsStr, OsString};
+use std::time::Instant;
+use std::{env, fs, io, process, thread};
 use toml;
 
 mod builder;
-mod model;
 mod config;
+mod manager;
+mod model;
 mod proto;
 mod wg;
-mod manager;
 
 fn load_config(path: &OsStr) -> io::Result<config::Config> {
     let mut data = String::new();
@@ -30,13 +32,19 @@ fn load_config(path: &OsStr) -> io::Result<config::Config> {
 }
 
 fn usage(argv0: &str) -> i32 {
-    eprintln!("<1>Invalid arguments. See `{} --help` for more information", argv0);
+    eprintln!(
+        "<1>Invalid arguments. See `{} --help` for more information",
+        argv0
+    );
     1
 }
 
 fn help(argv0: &str) -> i32 {
     println!("Usage:");
-    println!("    {} IFNAME CONFIG         - run daemon on iterface", argv0);
+    println!(
+        "    {} IFNAME CONFIG         - run daemon on iterface",
+        argv0
+    );
     println!("    {} --check-source PATH   - validate source JSON", argv0);
     1
 }
@@ -113,7 +121,7 @@ fn run_check_source(argv0: String, args: Vec<OsString>) -> i32 {
     }
 }
 
-fn main() -> () {
+fn main() {
     let mut iter_args = env::args_os();
     let argv0 = iter_args.next().unwrap().to_string_lossy().into_owned();
 

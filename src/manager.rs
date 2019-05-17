@@ -2,11 +2,11 @@
 //
 // See COPYING.
 
-use std::{io, fs};
 use crate::{builder, config, model, proto, wg};
-use std::time::{Duration, Instant, SystemTime};
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
+use std::time::{Duration, Instant, SystemTime};
+use std::{fs, io};
 
 struct Source {
     name: String,
@@ -33,11 +33,10 @@ impl Updater {
     }
 
     fn cache_update(&self, src: &Source) -> io::Result<bool> {
-        let path = match self.cache_path(src) {
-            Some(path) => path,
-            None => {
-                return Ok(false);
-            }
+        let path = if let Some(path) = match self.cache_path(src) {
+            path
+        } else {
+            return Ok(false);
         };
 
         let mut tmp_path = OsString::from(path.clone());
@@ -64,18 +63,16 @@ impl Updater {
     }
 
     fn cache_load(&self, src: &mut Source) -> bool {
-        let path = match self.cache_path(src) {
-            Some(path) => path,
-            None => {
-                return false;
-            }
+        let path = if let Some(path) = match self.cache_path(src) {
+            path
+        } else {
+            return false;
         };
 
-        let mut file = match fs::File::open(&path) {
-            Ok(file) => file,
-            Err(_) => {
-                return false;
-            }
+        let mut file = if let Some(file) = fs::File::open(&path) {
+            file
+        } else {
+            return false;
         };
 
         let mut data = Vec::new();
@@ -121,13 +118,17 @@ impl Updater {
             Err(r) => r,
         };
 
-        let b = src.backoff.unwrap_or_else(|| Duration::from_secs(10).min(refresh / 10));
+        let b = src
+            .backoff
+            .unwrap_or_else(|| Duration::from_secs(10).min(refresh / 10));
         src.next_update = now + b;
         src.backoff = Some((b + b / 3).min(refresh / 3));
-        eprintln!("<3>Failed to update [{}], retrying after {:.1?}: {}", &src.config.url, b, &r);
+        eprintln!(
+            "<3>Failed to update [{}], retrying after {:.1?}: {}",
+            &src.config.url, b, &r
+        );
         (false, now)
     }
-
 }
 
 pub struct Manager {
@@ -139,8 +140,8 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new(ifname: OsString, c: config::Config) -> io::Result<Manager> {
-        let mut m = Manager {
+    pub fn new(ifname: OsString, c: config::Config) -> io::Result<Self> {
+        let mut m = Self {
             dev: wg::Device::new(ifname)?,
             peer_config: c.peer_config,
             sources: vec![],
@@ -151,7 +152,7 @@ impl Manager {
             },
         };
 
-        for (name, cfg) in c.sources.into_iter() {
+        for (name, cfg) in c.sources {
             m.add_source(name, cfg)?;
         }
 
@@ -188,7 +189,10 @@ impl Manager {
         if self.updater.update(s).0 {
             return Ok(());
         }
-        Err(io::Error::new(io::ErrorKind::Other, format!("Failed to update required source [{}]", &s.config.url)))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!("Failed to update required source [{}]", &s.config.url),
+        ))
     }
 
     fn make_config(
@@ -198,8 +202,10 @@ impl Manager {
     ) -> (model::Config, Vec<builder::ConfigError>, SystemTime) {
         let mut t_cfg = ts + Duration::from_secs(1 << 30);
         let mut sources: Vec<(&Source, &proto::SourceConfig)> = vec![];
-        for src in self.sources.iter() {
-            let sc = src.data.next
+        for src in &self.sources {
+            let sc = src
+                .data
+                .next
                 .as_ref()
                 .and_then(|next| {
                     if ts >= next.update_at {
@@ -215,14 +221,14 @@ impl Manager {
 
         let mut cfg = builder::ConfigBuilder::new(public_key, &self.peer_config);
 
-        for (src, sc) in sources.iter() {
-            for peer in sc.servers.iter() {
+        for (src, sc) in &sources {
+            for peer in &sc.servers {
                 cfg.add_server(&src.config, peer);
             }
         }
 
-        for (src, sc) in sources.iter() {
-            for peer in sc.road_warriors.iter() {
+        for (src, sc) in &sources {
+            for peer in &sc.road_warriors {
                 cfg.add_road_warrior(&src.config, peer);
             }
         }
@@ -236,7 +242,7 @@ impl Manager {
         let mut now = Instant::now();
         let mut t_refresh = now + refresh;
 
-        for src in self.sources.iter_mut() {
+        for src in &mut self.sources {
             if now >= src.next_update {
                 now = self.updater.update(src).1;
             }
@@ -260,7 +266,7 @@ impl Manager {
 
         if config != self.current {
             eprintln!("<5>Applying configuration update");
-            for err in errors.iter() {
+            for err in &errors {
                 eprintln!("<{}>{}", if err.important { '4' } else { '5' }, err);
             }
             self.dev.apply_diff(&self.current, &config)?;
