@@ -30,6 +30,18 @@ macro_rules! per_proto {
         impl $nett {
             const BITS: u8 = $bytes * 8;
 
+            pub fn is_valid(&self) -> bool {
+                let pfx = self.prefix_len;
+                if pfx > Self::BITS {
+                    return false;
+                }
+                if pfx == Self::BITS {
+                    return true;
+                }
+                let val: $intt = self.address.into();
+                val & ($intt::max_value() >> pfx) == 0
+            }
+
             pub fn contains(&self, other: &Self) -> bool {
                 if self.prefix_len > other.prefix_len {
                     return false;
@@ -202,6 +214,16 @@ macro_rules! per_proto {
             }
         }
 
+        impl<'a> IntoIterator for &'a $sett {
+            type Item = &'a $nett;
+            type IntoIter = std::slice::Iter<'a, $nett>;
+
+            #[inline]
+            fn into_iter(self) -> Self::IntoIter {
+                self.nets.iter()
+            }
+        }
+
         impl FromIterator<$nett> for $sett {
             #[inline]
             fn from_iter<I: IntoIterator<Item = $nett>>(it: I) -> Self {
@@ -294,42 +316,6 @@ macro_rules! per_proto {
 per_proto!(Ipv4Net(Ipv4Addr; "IPv4 network"); u32(4); Ipv4Set);
 per_proto!(Ipv6Net(Ipv6Addr; "IPv6 network"); u128(16); Ipv6Set);
 
-impl Ipv4Net {
-    pub fn is_valid(self) -> bool {
-        let pfx = self.prefix_len;
-        if pfx > 32 {
-            return false;
-        }
-        if pfx == 32 {
-            return true;
-        }
-        let val: u32 = self.address.into();
-        val & (u32::max_value() >> pfx) == 0
-    }
-}
-
-impl Ipv6Net {
-    pub fn is_valid(self) -> bool {
-        let pfx = self.prefix_len;
-        if pfx > 128 {
-            return false;
-        }
-        if pfx == 128 {
-            return true;
-        }
-
-        let val: u128 = self.address.into();
-        let val: [u64; 2] = [(val >> 64) as u64, val as u64];
-        if pfx >= 64 {
-            return val[1] & (u64::max_value() >> (pfx - 64)) == 0;
-        }
-        if val[1] != 0 {
-            return false;
-        }
-        val[0] & (u64::max_value() >> pfx) == 0
-    }
-}
-
 fn pfx_split(s: &str) -> Result<(&str, u8), NetParseError> {
     let i = if let Some(i) = s.find('/') {
         i
@@ -339,4 +325,137 @@ fn pfx_split(s: &str) -> Result<(&str, u8), NetParseError> {
     let (addr, pfx) = s.split_at(i);
     let pfx = u8::from_str(&pfx[1..]).map_err(|_| NetParseError)?;
     Ok((addr, pfx))
+}
+
+#[cfg(test)]
+mod test {
+    use super::{pfx_split, Ipv4Addr, Ipv4Net, Ipv4Set, Ipv6Addr, Ipv6Net};
+    use std::str::FromStr;
+
+    #[test]
+    fn test_pfx_split() {
+        assert_eq!(pfx_split("asdf/0").unwrap(), ("asdf", 0));
+        assert_eq!(pfx_split("asdf/123").unwrap(), ("asdf", 123));
+        assert_eq!(pfx_split("asdf/0123").unwrap(), ("asdf", 123));
+        assert_eq!(pfx_split("/1").unwrap(), ("", 1));
+        assert_eq!(pfx_split("abc/2").unwrap(), ("abc", 2));
+
+        assert!(pfx_split("no_slash").is_err());
+        assert!(pfx_split("asdf/abc").is_err());
+        assert!(pfx_split("asdf/0abc").is_err());
+        assert!(pfx_split("asdf/0x123").is_err());
+        assert!(pfx_split("asdf/12345").is_err());
+    }
+
+    #[test]
+    fn test_net_parse() {
+        assert_eq!(
+            Ipv4Net::from_str("192.0.2.5/32").unwrap(),
+            Ipv4Net {
+                address: Ipv4Addr::from_str("192.0.2.5").unwrap(),
+                prefix_len: 32,
+            }
+        );
+
+        assert!(Ipv4Net::from_str("error").is_err());
+
+        assert!(Ipv4Net::from_str("192.0.2.128/32").is_ok());
+        assert!(Ipv4Net::from_str("192.0.2.128/25").is_ok());
+        assert!(Ipv4Net::from_str("192.0.2.128/24").is_err());
+        assert!(Ipv4Net::from_str("192.0.2.128").is_err());
+    }
+
+    #[test]
+    fn test_net_display() {
+        assert_eq!(
+            (Ipv4Net {
+                address: Ipv4Addr::from_str("192.0.2.0").unwrap(),
+                prefix_len: 28,
+            })
+            .to_string(),
+            "192.0.2.0/28"
+        );
+
+        assert_eq!(
+            (Ipv6Net {
+                address: Ipv6Addr::from_str("::1").unwrap(),
+                prefix_len: 128,
+            })
+            .to_string(),
+            "::1/128"
+        );
+    }
+
+    fn disp_set(s: &Ipv4Set) -> String {
+        s.iter()
+            .map(Ipv4Net::to_string)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[test]
+    fn test_set_insert() {
+        let mut s = Ipv4Set::default();
+        assert_eq!(disp_set(&s), "");
+
+        s.insert(Ipv4Net::from_str("192.0.2.7/32").unwrap());
+        assert_eq!(disp_set(&s), "192.0.2.7/32");
+
+        s.insert(Ipv4Net::from_str("192.0.2.5/32").unwrap());
+        assert_eq!(disp_set(&s), "192.0.2.5/32,192.0.2.7/32");
+
+        s.insert(Ipv4Net::from_str("192.0.2.6/32").unwrap());
+        assert_eq!(disp_set(&s), "192.0.2.5/32,192.0.2.6/31");
+
+        let mut s1 = s.clone();
+        s1.insert(Ipv4Net::from_str("192.0.2.0/30").unwrap());
+        assert_eq!(disp_set(&s1), "192.0.2.0/30,192.0.2.5/32,192.0.2.6/31");
+
+        s.insert(Ipv4Net::from_str("192.0.2.4/32").unwrap());
+        assert_eq!(disp_set(&s), "192.0.2.4/30");
+
+        s1.insert(Ipv4Net::from_str("192.0.2.4/32").unwrap());
+        assert_eq!(disp_set(&s1), "192.0.2.0/29");
+
+        s.insert(Ipv4Net::from_str("0.0.0.0/0").unwrap());
+        assert_eq!(disp_set(&s), "0.0.0.0/0");
+    }
+
+    #[test]
+    fn test_set_from_slice() {
+        fn s(v: &[&str]) -> String {
+            disp_set(&Ipv4Set::from(
+                v.iter()
+                    .cloned()
+                    .map(Ipv4Net::from_str)
+                    .map(Result::unwrap)
+                    .collect::<Vec<_>>(),
+            ))
+        }
+
+        assert_eq!(s(&[]), "");
+        assert_eq!(s(&["192.0.2.7/32"]), "192.0.2.7/32");
+        assert_eq!(s(&["192.0.2.7/32", "192.0.2.7/32"]), "192.0.2.7/32");
+        assert_eq!(
+            s(&["192.0.2.7/32", "192.0.2.5/32"]),
+            "192.0.2.5/32,192.0.2.7/32"
+        );
+        assert_eq!(
+            s(&["192.0.2.7/32", "192.0.2.5/32", "192.0.2.6/32"]),
+            "192.0.2.5/32,192.0.2.6/31"
+        );
+        assert_eq!(
+            s(&[
+                "192.0.2.7/32",
+                "192.0.2.5/32",
+                "192.0.2.6/32",
+                "192.0.2.4/32"
+            ]),
+            "192.0.2.4/30"
+        );
+        assert_eq!(
+            s(&["192.0.2.7/32", "192.0.2.6/32", "192.0.2.5/32", "0.0.0.0/0"]),
+            "0.0.0.0/0"
+        );
+    }
 }
