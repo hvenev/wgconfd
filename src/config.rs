@@ -23,8 +23,18 @@ pub struct Source {
 pub struct PeerConfig {
     #[serde(default = "default_min_keepalive")]
     pub min_keepalive: u32,
-    #[serde(default)]
+    #[serde(default = "default_max_keepalive")]
     pub max_keepalive: u32,
+}
+
+impl Default for PeerConfig {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            min_keepalive: default_min_keepalive(),
+            max_keepalive: default_max_keepalive(),
+        }
+    }
 }
 
 #[serde(deny_unknown_fields)]
@@ -35,8 +45,17 @@ pub struct UpdateConfig {
     pub refresh_sec: u32,
 }
 
+impl Default for UpdateConfig {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            refresh_sec: default_refresh_sec(),
+        }
+    }
+}
+
 #[serde(deny_unknown_fields)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Default, Clone, Debug)]
 pub struct Config {
     pub cache_directory: Option<PathBuf>,
     pub runtime_directory: Option<PathBuf>,
@@ -64,11 +83,16 @@ impl PeerConfig {
 }
 
 #[inline]
-fn default_min_keepalive() -> u32 {
+const fn default_min_keepalive() -> u32 {
     10
 }
 
 #[inline]
-fn default_refresh_sec() -> u32 {
+const fn default_max_keepalive() -> u32 {
+    0
+}
+
+#[inline]
+const fn default_refresh_sec() -> u32 {
     1200
 }

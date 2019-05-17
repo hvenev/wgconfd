@@ -43,6 +43,18 @@ All IP address ranges from the source URL not entirely contained within the conf
 
 The preshared key is applied to all peers defined in a source. If a single peer is defined in multiple sources, only the endpoint and preshared key from a single nondeterministic source are considered, but all IP ranges are allowed (TODO: add some per-pubkey filtering).
 
+Alternative configuration
+---
+
+There is an alternative configuration mechanism intended for integration with other software: `wgconfd --cmdline INTERFACE ARGS...`
+
+The arguments are a sequence of global options and sources:
+
+ - `min_keepalive TIME`
+ - `max_keepalive TIME`
+ - `refresh_sec TIME`
+ - `source NAME URL [psk PSK] [ipv4 NET,NET,...] [ipv6 NET,NET,...] [required]`
+
 Source format
 ---
 
