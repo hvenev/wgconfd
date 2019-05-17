@@ -4,7 +4,7 @@
 
 use crate::{builder, config, model, proto, wg};
 use std::ffi::{OsStr, OsString};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 use std::{fs, io};
 
@@ -21,6 +21,40 @@ struct Updater {
     cache_directory: Option<PathBuf>,
 }
 
+fn update_file(path: &Path, data: &[u8]) -> io::Result<()> {
+    let mut tmp_path = OsString::from(path);
+    tmp_path.push(".tmp");
+    let tmp_path = PathBuf::from(tmp_path);
+
+    let mut file = fs::File::create(&tmp_path)?;
+    let r = io::Write::write_all(&mut file, data)
+        .and_then(|_| file.sync_data())
+        .and_then(|_| fs::rename(&tmp_path, &path));
+
+    if r.is_err() {
+        fs::remove_file(&tmp_path).unwrap_or_else(|e2| {
+            eprintln!("<3>Failed to clean up [{}]: {}", tmp_path.display(), e2);
+        });
+    }
+    r
+}
+
+fn load_file(path: &Path) -> io::Result<Option<Vec<u8>>> {
+    let mut file = match fs::File::open(&path) {
+        Ok(file) => file,
+        Err(e) => {
+            if e.kind() == io::ErrorKind::NotFound {
+                return Ok(None);
+            }
+            return Err(e);
+        }
+    };
+
+    let mut data = Vec::new();
+    io::Read::read_to_end(&mut file, &mut data)?;
+    Ok(Some(data))
+}
+
 impl Updater {
     fn cache_path(&self, s: &Source) -> Option<PathBuf> {
         if let Some(ref dir) = self.cache_directory {
@@ -32,54 +66,36 @@ impl Updater {
         }
     }
 
-    fn cache_update(&self, src: &Source) -> io::Result<bool> {
-        let path = if let Some(path) = match self.cache_path(src) {
+    fn cache_update(&self, src: &Source) {
+        let path = if let Some(path) = self.cache_path(src) {
             path
         } else {
-            return Ok(false);
+            return;
         };
 
-        let mut tmp_path = OsString::from(path.clone());
-        tmp_path.push(".tmp");
-        let tmp_path = PathBuf::from(tmp_path);
-
         let data = serde_json::to_vec(&src.data).unwrap();
-
-        let mut file = fs::File::create(&tmp_path)?;
-        match io::Write::write_all(&mut file, &data)
-            .and_then(|_| file.sync_data())
-            .and_then(|_| fs::rename(&tmp_path, &path))
-        {
+        match update_file(&path, &data) {
             Ok(()) => {}
             Err(e) => {
-                fs::remove_file(&tmp_path).unwrap_or_else(|e2| {
-                    eprintln!("<3>Failed to clean up [{}]: {}", tmp_path.display(), e2);
-                });
-                return Err(e);
+                eprintln!("<4>Failed to cache [{}]: {}", &src.name, e);
             }
         }
-
-        Ok(true)
     }
 
     fn cache_load(&self, src: &mut Source) -> bool {
-        let path = if let Some(path) = match self.cache_path(src) {
+        let path = if let Some(path) = self.cache_path(src) {
             path
         } else {
             return false;
         };
 
-        let mut file = if let Some(file) = fs::File::open(&path) {
-            file
-        } else {
-            return false;
-        };
-
-        let mut data = Vec::new();
-        match io::Read::read_to_end(&mut file, &mut data) {
-            Ok(_) => {}
+        let data = match load_file(&path) {
+            Ok(Some(data)) => data,
+            Ok(None) => {
+                return false;
+            }
             Err(e) => {
-                eprintln!("<3>Failed to read [{}] from cache: {}", src.config.url, e);
+                eprintln!("<3>Failed to read [{}] from cache: {}", &src.name, e);
                 return false;
             }
         };
@@ -88,7 +104,7 @@ impl Updater {
         src.data = match serde::Deserialize::deserialize(&mut de) {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("<3>Failed to load [{}] from cache: {}", src.config.url, e);
+                eprintln!("<3>Failed to load [{}] from cache: {}", &src.name, e);
                 return false;
             }
         };
@@ -107,12 +123,7 @@ impl Updater {
                 src.data = r;
                 src.backoff = None;
                 src.next_update = now + refresh;
-                match self.cache_update(src) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        eprintln!("<4>Failed to cache [{}]: {}", &src.config.url, e);
-                    }
-                }
+                self.cache_update(src);
                 return (true, now);
             }
             Err(r) => r,
@@ -136,6 +147,7 @@ pub struct Manager {
     peer_config: config::PeerConfig,
     sources: Vec<Source>,
     current: model::Config,
+    runtime_directory: Option<PathBuf>,
     updater: Updater,
 }
 
@@ -146,17 +158,77 @@ impl Manager {
             peer_config: c.peer_config,
             sources: vec![],
             current: model::Config::default(),
+            runtime_directory: c.runtime_directory,
             updater: Updater {
                 config: c.update_config,
                 cache_directory: c.cache_directory,
             },
         };
 
+        let _ = m.current_load();
+
         for (name, cfg) in c.sources {
             m.add_source(name, cfg)?;
         }
 
         Ok(m)
+    }
+
+    fn state_path(&self) -> Option<PathBuf> {
+        let mut path = if let Some(ref path) = self.runtime_directory {
+            path.clone()
+        } else {
+            return None;
+        };
+        path.push("state.json");
+        Some(path)
+    }
+
+    fn current_load(&mut self) -> bool {
+        let path = if let Some(path) = self.state_path() {
+            path
+        } else {
+            return false;
+        };
+
+        let data = match load_file(&path) {
+            Ok(Some(data)) => data,
+            Ok(None) => {
+                return false;
+            }
+            Err(e) => {
+                eprintln!("<3>Failed to read interface state: {}", e);
+                return false;
+            }
+        };
+
+        let mut de = serde_json::Deserializer::from_slice(&data);
+        match serde::Deserialize::deserialize(&mut de) {
+            Ok(c) => {
+                self.current = c;
+                true
+            }
+            Err(e) => {
+                eprintln!("<3>Failed to load interface state: {}", e);
+                false
+            }
+        }
+    }
+
+    fn current_update(&mut self, c: &model::Config) {
+        let path = if let Some(path) = self.state_path() {
+            path
+        } else {
+            return;
+        };
+
+        let data = serde_json::to_vec(c).unwrap();
+        match update_file(&path, &data) {
+            Ok(()) => {}
+            Err(e) => {
+                eprintln!("<3>Failed to persist interface state: {}", e);
+            }
+        }
     }
 
     fn add_source(&mut self, name: String, config: config::Source) -> io::Result<()> {
@@ -270,6 +342,7 @@ impl Manager {
                 eprintln!("<{}>{}", if err.important { '4' } else { '5' }, err);
             }
             self.dev.apply_diff(&self.current, &config)?;
+            self.current_update(&config);
             self.current = config;
         }
 

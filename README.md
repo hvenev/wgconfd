@@ -7,8 +7,6 @@ General behavior
 ---
 `wgconfd INTERFACE CONFIG` starts a process that manages some peers of a WireGuard interface. It adds/overwrites peers it knows about and removes peers once they disappear from its view. It leaves any peers it has never seen intact.
 
-TODO: Right now `wgconfd` does not persist its state across restarts. Restarting resets all endpoints and does not remove peers that disappeared from its view while it was down.
-
 Configuration
 ---
 
