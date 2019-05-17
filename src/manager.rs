@@ -4,6 +4,8 @@
 
 use crate::{builder, config, model, proto, wg};
 use std::ffi::{OsStr, OsString};
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 use std::{fs, io};
@@ -26,7 +28,15 @@ fn update_file(path: &Path, data: &[u8]) -> io::Result<()> {
     tmp_path.push(".tmp");
     let tmp_path = PathBuf::from(tmp_path);
 
-    let mut file = fs::File::create(&tmp_path)?;
+    let mut file = {
+        let mut file = fs::OpenOptions::new();
+        file.append(true);
+        file.create_new(true);
+        #[cfg(unix)]
+        file.mode(0o0600);
+        file.open(&tmp_path)?
+    };
+
     let r = io::Write::write_all(&mut file, data)
         .and_then(|_| file.sync_data())
         .and_then(|_| fs::rename(&tmp_path, &path));
