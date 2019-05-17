@@ -200,7 +200,7 @@ impl Manager {
         public_key: model::Key,
         ts: SystemTime,
     ) -> (model::Config, Vec<builder::ConfigError>, SystemTime) {
-        let mut t_cfg = ts + Duration::from_secs(1 << 30);
+        let mut t_cfg = ts + Duration::from_secs(1 << 20);
         let mut sources: Vec<(&Source, &proto::SourceConfig)> = vec![];
         for src in &self.sources {
             let sc = src
