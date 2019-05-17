@@ -75,6 +75,9 @@ impl Device {
             proc.arg("peer");
             proc.arg(pubkey.to_string());
 
+            proc.arg("persistent-keepalive");
+            proc.arg(conf.keepalive.to_string());
+
             if old_endpoint != conf.endpoint {
                 if let Some(ref endpoint) = conf.endpoint {
                     proc.arg("endpoint");
