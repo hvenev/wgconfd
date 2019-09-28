@@ -2,6 +2,9 @@
 //
 // See COPYING.
 
+// FIXME: arrayref needs to silence this per-expression
+#![allow(clippy::eval_order_dependence)]
+
 use base64;
 use std::collections::HashMap;
 use std::fmt;

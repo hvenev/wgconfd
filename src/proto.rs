@@ -81,6 +81,8 @@ mod serde_utc {
             ser.serialize_str(&t.to_rfc3339_opts(SecondsFormat::Nanos, true))
         } else {
             let mut buf = [0_u8; 12];
+            // FIXME: arrayref needs to silence this per-expression
+            #[allow(clippy::eval_order_dependence)]
             let (buf_secs, buf_nanos) = mut_array_refs![&mut buf, 8, 4];
             *buf_secs = t.timestamp().to_be_bytes();
             *buf_nanos = t.timestamp_subsec_nanos().to_be_bytes();
@@ -107,6 +109,8 @@ mod serde_utc {
             de.deserialize_str(RFC3339Visitor)
         } else {
             let mut buf = <[u8; 12]>::deserialize(de)?;
+            // FIXME: arrayref needs to silence this per-expression
+            #[allow(clippy::eval_order_dependence)]
             let (buf_secs, buf_nanos) = array_refs![&mut buf, 8, 4];
             let secs = i64::from_be_bytes(*buf_secs);
             let nanos = u32::from_be_bytes(*buf_nanos);
