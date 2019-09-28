@@ -95,20 +95,15 @@ impl Manager {
     }
 
     fn state_path(&self) -> Option<PathBuf> {
-        let mut path = if let Some(ref path) = self.state_directory {
-            path.clone()
-        } else {
-            return None;
-        };
+        let mut path = self.state_directory.as_ref()?.clone();
         path.push("state.json");
         Some(path)
     }
 
     fn current_load(&mut self) -> bool {
-        let path = if let Some(path) = self.state_path() {
-            path
-        } else {
-            return false;
+        let path = match self.state_path() {
+            Some(v) => v,
+            None => return false,
         };
 
         let data = match load_file(&path) {
@@ -136,10 +131,9 @@ impl Manager {
     }
 
     fn current_update(&mut self, c: &model::Config) {
-        let path = if let Some(path) = self.state_path() {
-            path
-        } else {
-            return;
+        let path = match self.state_path() {
+            Some(v) => v,
+            None => return,
         };
 
         let data = serde_json::to_vec(c).unwrap();

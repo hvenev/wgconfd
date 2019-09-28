@@ -19,20 +19,15 @@ impl Updater {
     }
 
     fn cache_path(&self, s: &Source) -> Option<PathBuf> {
-        if let Some(ref dir) = self.config.cache_directory {
-            let mut p = dir.clone();
-            p.push(&s.name);
-            Some(p)
-        } else {
-            None
-        }
+        let mut p = self.config.cache_directory.as_ref()?.clone();
+        p.push(&s.name);
+        Some(p)
     }
 
     fn cache_update(&self, src: &Source) {
-        let path = if let Some(path) = self.cache_path(src) {
-            path
-        } else {
-            return;
+        let path = match self.cache_path(src) {
+            Some(v) => v,
+            None => return,
         };
 
         let data = serde_json::to_vec(&src.data).unwrap();
@@ -45,10 +40,9 @@ impl Updater {
     }
 
     pub fn cache_load(&self, src: &mut Source) -> bool {
-        let path = if let Some(path) = self.cache_path(src) {
-            path
-        } else {
-            return false;
+        let path = match  self.cache_path(src) {
+            Some(v) => v,
+            None => return false,
         };
 
         let data = match load_file(&path) {

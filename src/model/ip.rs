@@ -159,10 +159,9 @@ macro_rules! per_proto {
             }
 
             pub fn insert(&mut self, mut net: $nett) {
-                let mut i = if let Err(i) = self.nets.binary_search(&net) {
-                    i
-                } else {
-                    return;
+                let mut i = match self.nets.binary_search(&net) {
+                    Err(v) => v,
+                    Ok(_) => return,
                 };
                 let mut j = i;
                 if i != 0 && self.nets[i - 1].contains(&net) {
@@ -317,10 +316,9 @@ per_proto!(Ipv4Net(Ipv4Addr; "IPv4 network"); u32(4); Ipv4Set);
 per_proto!(Ipv6Net(Ipv6Addr; "IPv6 network"); u128(16); Ipv6Set);
 
 fn pfx_split(s: &str) -> Result<(&str, u8), NetParseError> {
-    let i = if let Some(i) = s.find('/') {
-        i
-    } else {
-        return Err(NetParseError);
+    let i = match s.find('/') {
+        Some(v) => v,
+        None => return Err(NetParseError),
     };
     let (addr, pfx) = s.split_at(i);
     let pfx = u8::from_str(&pfx[1..]).map_err(|_| NetParseError)?;

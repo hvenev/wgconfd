@@ -162,11 +162,9 @@ fn find_psk<'a>(
     src: &'a Source,
     p: &proto::Peer,
 ) -> Result<Option<&'a model::Key>, Error> {
-    let want = gc.peers.get(&p.public_key);
-    let want = if let Some(v) = want {
-        v
-    } else {
-        return Ok(None);
+    let want = match gc.peers.get(&p.public_key) {
+        Some(v) => v,
+        None => return Ok(None),
     };
 
     if let Some(ref want_src) = &want.source {
