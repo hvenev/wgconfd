@@ -1,0 +1,10 @@
+[Unit]
+Description=WireGuard runtime state for %i
+
+[Service]
+Type=oneshot
+ExecStart=/bin/true
+RemainAfterExit=true
+RuntimeDirectory=wgconfd/%i
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=no

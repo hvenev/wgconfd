@@ -1,7 +1,8 @@
 [Unit]
 Description=WireGuard configuration daemon on %i
 Wants=network.target
-After=network-pre.target
+Requires=wgconfd-state@%i.service
+After=network-pre.target wgconfd-state@%i.service
 Before=network.target
 
 [Service]
@@ -9,11 +10,9 @@ Type=simple
 CapabilityBoundingSet=CAP_NET_ADMIN
 Restart=on-failure
 RestartSec=0
-RuntimeDirectory=wgconfd/%i
-RuntimeDirectoryMode=0700
-RuntimeDirectoryPreserve=yes
 CacheDirectory=wgconfd/%i
 CacheDirectoryMode=0700
+Environment=RUNTIME_DIRECTORY=%t/wgconfd/%i
 ExecStart=/usr/bin/env wgconfd %i /etc/wireguard/%i.toml
 StandardError=journal
 SyslogLevelPrefix=true

@@ -1,3 +1,16 @@
+v0.2.0
+---
+
+- Peer overrides can be specified in the main configuration file. An override
+for a specific public key can contain a preshared key and can restrict the
+source that can define the peer.
+
+- The systemd service has been split in two. Restarting `wgconfd-state@.service`
+also wipes the state. This service should be marked as `PartOf=` the service
+that manages the interface. `wgconfd@.service` itself is
+`PartOf=wgconfd-state@.service`.
+
+
 v0.1.2
 ---
 
