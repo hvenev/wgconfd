@@ -3,25 +3,12 @@
 // See COPYING.
 
 use crate::{config, model, proto, wg};
-use std::ffi::{OsString};
+use std::ffi::OsString;
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 use std::{fs, io};
-
-struct Source {
-    name: String,
-    config: config::Source,
-    data: proto::Source,
-    next_update: Instant,
-    backoff: Option<Duration>,
-}
-
-mod builder;
-
-mod updater;
-pub use updater::load_source;
 
 fn update_file(path: &Path, data: &[u8]) -> io::Result<()> {
     let mut tmp_path = OsString::from(path);
@@ -65,23 +52,36 @@ fn load_file(path: &Path) -> io::Result<Option<Vec<u8>>> {
     Ok(Some(data))
 }
 
+struct Source {
+    name: String,
+    config: config::Source,
+    data: proto::Source,
+    next_update: Instant,
+    backoff: Option<Duration>,
+}
+
+mod updater;
+pub use updater::load_source;
+
+mod builder;
+
 pub struct Manager {
     dev: wg::Device,
     global_config: config::GlobalConfig,
     sources: Vec<Source>,
     current: model::Config,
-    runtime_directory: Option<PathBuf>,
+    state_directory: Option<PathBuf>,
     updater: updater::Updater,
 }
 
 impl Manager {
     pub fn new(ifname: OsString, c: config::Config) -> io::Result<Self> {
         let mut m = Self {
-            dev: wg::Device::new(ifname)?,
+            dev: wg::Device::open(ifname)?,
             global_config: c.global,
             sources: vec![],
-            current: model::Config::default(),
-            runtime_directory: c.runtime_directory,
+            current: model::Config::empty(),
+            state_directory: c.state_directory,
             updater: updater::Updater::new(c.updater),
         };
 
@@ -95,7 +95,7 @@ impl Manager {
     }
 
     fn state_path(&self) -> Option<PathBuf> {
-        let mut path = if let Some(ref path) = self.runtime_directory {
+        let mut path = if let Some(ref path) = self.state_directory {
             path.clone()
         } else {
             return None;
@@ -191,7 +191,7 @@ impl Manager {
         &self,
         public_key: model::Key,
         ts: SystemTime,
-    ) -> (model::Config, Vec<builder::ConfigError>, SystemTime) {
+    ) -> (model::Config, Vec<builder::Error>, SystemTime) {
         let mut t_cfg = ts + Duration::from_secs(1 << 20);
         let mut sources: Vec<(&Source, &proto::SourceConfig)> = vec![];
         for src in &self.sources {
@@ -215,13 +215,13 @@ impl Manager {
 
         for (src, sc) in &sources {
             for peer in &sc.servers {
-                cfg.add_server(&src.config, peer);
+                cfg.add_server(src, peer);
             }
         }
 
         for (src, sc) in &sources {
             for peer in &sc.road_warriors {
-                cfg.add_road_warrior(&src.config, peer);
+                cfg.add_road_warrior(src, peer);
             }
         }
 
@@ -259,7 +259,7 @@ impl Manager {
         if config != self.current {
             eprintln!("<5>Applying configuration update");
             for err in &errors {
-                eprintln!("<{}>{}", if err.important { '4' } else { '5' }, err);
+                eprintln!("<{}>{}", if err.important() { '4' } else { '5' }, err);
             }
             self.dev.apply_diff(&self.current, &config)?;
             self.current_update(&config);

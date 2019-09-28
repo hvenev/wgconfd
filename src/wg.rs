@@ -13,7 +13,7 @@ pub struct Device {
 
 impl Device {
     #[inline]
-    pub fn new(ifname: OsString) -> io::Result<Self> {
+    pub fn open(ifname: OsString) -> io::Result<Self> {
         let dev = Self { ifname };
         let _ = dev.get_public_key()?;
         Ok(dev)
@@ -67,7 +67,7 @@ impl Device {
                 if *old_peer == *conf {
                     continue;
                 }
-                old_endpoint = old_peer.endpoint.clone();
+                old_endpoint = old_peer.endpoint;
             } else {
                 old_endpoint = None;
             }

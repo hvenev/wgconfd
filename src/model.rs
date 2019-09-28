@@ -15,7 +15,7 @@ pub use ip::*;
 
 pub type KeyParseError = base64::DecodeError;
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Key([u8; 32]);
 
 impl Key {
@@ -82,7 +82,7 @@ impl<'de> serde::Deserialize<'de> for Key {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Endpoint {
     address: Ipv6Addr,
     port: u16,
@@ -193,13 +193,6 @@ pub struct Peer {
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Config {
     pub peers: HashMap<Key, Peer>,
-}
-
-impl Default for Config {
-    #[inline]
-    fn default() -> Self {
-        Self::empty()
-    }
 }
 
 impl Config {

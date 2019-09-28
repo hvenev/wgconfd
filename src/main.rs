@@ -188,12 +188,12 @@ fn run_with_cmdline(argv0: &str, args: &mut impl Iterator<Item = OsString>) -> i
 
 fn run_daemon(ifname: OsString, mut config: config::Config) -> i32 {
     maybe_get_var(&mut config.updater.cache_directory, "CACHE_DIRECTORY");
-    maybe_get_var(&mut config.runtime_directory, "RUNTIME_DIRECTORY");
+    maybe_get_var(&mut config.state_directory, "RUNTIME_DIRECTORY");
 
     let mut m = match manager::Manager::new(ifname, config) {
         Ok(m) => m,
         Err(e) => {
-            eprintln!("<1>Failed to open device: {}", e);
+            eprintln!("<1>Failed to start: {}", e);
             return 1;
         }
     };
