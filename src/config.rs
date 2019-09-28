@@ -39,16 +39,19 @@ impl Default for PeerConfig {
 
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
-pub struct UpdateConfig {
+pub struct UpdaterConfig {
+    pub cache_directory: Option<PathBuf>,
+
     // Number of seconds between regular updates.
     #[serde(default = "default_refresh_sec")]
     pub refresh_sec: u32,
 }
 
-impl Default for UpdateConfig {
+impl Default for UpdaterConfig {
     #[inline]
     fn default() -> Self {
         Self {
+            cache_directory: None,
             refresh_sec: default_refresh_sec(),
         }
     }
@@ -57,14 +60,13 @@ impl Default for UpdateConfig {
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Default, Clone, Debug)]
 pub struct Config {
-    pub cache_directory: Option<PathBuf>,
     pub runtime_directory: Option<PathBuf>,
 
     #[serde(flatten)]
     pub peer_config: PeerConfig,
 
     #[serde(flatten)]
-    pub update_config: UpdateConfig,
+    pub updater: UpdaterConfig,
 
     #[serde(rename = "source")]
     pub sources: HashMap<String, Source>,

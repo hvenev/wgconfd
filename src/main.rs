@@ -89,7 +89,7 @@ fn cli_config(args: &mut impl Iterator<Item = OsString>) -> Option<config::Confi
         if key == "refresh_sec" {
             arg = args.next()?;
             let arg = arg.to_str()?;
-            cfg.update_config.refresh_sec = u32::from_str(arg).ok()?;
+            cfg.updater.refresh_sec = u32::from_str(arg).ok()?;
             continue;
         }
         if key == "source" {
@@ -187,7 +187,7 @@ fn run_with_cmdline(argv0: &str, args: &mut impl Iterator<Item = OsString>) -> i
 }
 
 fn run_daemon(ifname: OsString, mut config: config::Config) -> i32 {
-    maybe_get_var(&mut config.cache_directory, "CACHE_DIRECTORY");
+    maybe_get_var(&mut config.updater.cache_directory, "CACHE_DIRECTORY");
     maybe_get_var(&mut config.runtime_directory, "RUNTIME_DIRECTORY");
 
     let mut m = match manager::Manager::new(ifname, config) {
