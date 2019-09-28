@@ -20,20 +20,32 @@ pub struct Source {
 
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
-pub struct PeerConfig {
+pub struct GlobalConfig {
     #[serde(default = "default_min_keepalive")]
     pub min_keepalive: u32,
     #[serde(default = "default_max_keepalive")]
     pub max_keepalive: u32,
 }
 
-impl Default for PeerConfig {
+impl Default for GlobalConfig {
     #[inline]
     fn default() -> Self {
         Self {
             min_keepalive: default_min_keepalive(),
             max_keepalive: default_max_keepalive(),
         }
+    }
+}
+
+impl GlobalConfig {
+    pub fn fix_keepalive(&self, mut k: u32) -> u32 {
+        if self.max_keepalive != 0 && (k == 0 || k > self.max_keepalive) {
+            k = self.max_keepalive;
+        }
+        if k != 0 && k < self.min_keepalive {
+            k = self.min_keepalive;
+        }
+        k
     }
 }
 
@@ -63,25 +75,13 @@ pub struct Config {
     pub runtime_directory: Option<PathBuf>,
 
     #[serde(flatten)]
-    pub peer_config: PeerConfig,
+    pub global: GlobalConfig,
 
     #[serde(flatten)]
     pub updater: UpdaterConfig,
 
     #[serde(rename = "source")]
     pub sources: HashMap<String, Source>,
-}
-
-impl PeerConfig {
-    pub fn fix_keepalive(&self, mut k: u32) -> u32 {
-        if self.max_keepalive != 0 && (k == 0 || k > self.max_keepalive) {
-            k = self.max_keepalive;
-        }
-        if k != 0 && k < self.min_keepalive {
-            k = self.min_keepalive;
-        }
-        k
-    }
 }
 
 #[inline]

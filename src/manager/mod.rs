@@ -67,7 +67,7 @@ fn load_file(path: &Path) -> io::Result<Option<Vec<u8>>> {
 
 pub struct Manager {
     dev: wg::Device,
-    peer_config: config::PeerConfig,
+    global_config: config::GlobalConfig,
     sources: Vec<Source>,
     current: model::Config,
     runtime_directory: Option<PathBuf>,
@@ -78,7 +78,7 @@ impl Manager {
     pub fn new(ifname: OsString, c: config::Config) -> io::Result<Self> {
         let mut m = Self {
             dev: wg::Device::new(ifname)?,
-            peer_config: c.peer_config,
+            global_config: c.global,
             sources: vec![],
             current: model::Config::default(),
             runtime_directory: c.runtime_directory,
@@ -211,7 +211,7 @@ impl Manager {
             sources.push((src, sc));
         }
 
-        let mut cfg = builder::ConfigBuilder::new(public_key, &self.peer_config);
+        let mut cfg = builder::ConfigBuilder::new(public_key, &self.global_config);
 
         for (src, sc) in &sources {
             for peer in &sc.servers {

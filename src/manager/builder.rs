@@ -47,17 +47,17 @@ pub struct ConfigBuilder<'a> {
     c: model::Config,
     err: Vec<ConfigError>,
     public_key: model::Key,
-    pc: &'a config::PeerConfig,
+    gc: &'a config::GlobalConfig,
 }
 
 impl<'a> ConfigBuilder<'a> {
     #[inline]
-    pub fn new(public_key: model::Key, pc: &'a config::PeerConfig) -> Self {
+    pub fn new(public_key: model::Key, gc: &'a config::GlobalConfig) -> Self {
         Self {
             c: model::Config::default(),
             err: vec![],
             public_key,
-            pc,
+            gc,
         }
     }
 
@@ -72,11 +72,11 @@ impl<'a> ConfigBuilder<'a> {
             return;
         }
 
-        let pc = self.pc;
+        let gc = self.gc;
         let ent = insert_peer(&mut self.c, &mut self.err, s, &p.peer, |ent| {
             ent.psk = s.psk.clone();
             ent.endpoint = Some(p.endpoint.clone());
-            ent.keepalive = pc.fix_keepalive(p.keepalive);
+            ent.keepalive = gc.fix_keepalive(p.keepalive);
         });
 
         add_peer(&mut self.err, ent, s, &p.peer)

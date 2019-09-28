@@ -77,13 +77,13 @@ fn cli_config(args: &mut impl Iterator<Item = OsString>) -> Option<config::Confi
         if key == "min_keepalive" {
             arg = args.next()?;
             let arg = arg.to_str()?;
-            cfg.peer_config.min_keepalive = u32::from_str(arg).ok()?;
+            cfg.global.min_keepalive = u32::from_str(arg).ok()?;
             continue;
         }
         if key == "max_keepalive" {
             arg = args.next()?;
             let arg = arg.to_str()?;
-            cfg.peer_config.max_keepalive = u32::from_str(arg).ok()?;
+            cfg.global.max_keepalive = u32::from_str(arg).ok()?;
             continue;
         }
         if key == "refresh_sec" {
