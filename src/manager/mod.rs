@@ -2,13 +2,15 @@
 //
 // See COPYING.
 
-use crate::{builder, config, model, proto, wg};
+use crate::{config, model, proto, wg};
 use std::ffi::{OsStr, OsString};
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 use std::{fs, io};
+
+mod builder;
 
 struct Source {
     name: String,

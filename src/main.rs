@@ -16,7 +16,6 @@ use std::{fs, io};
 #[cfg(feature = "toml")]
 use toml;
 
-mod builder;
 mod config;
 mod manager;
 mod model;
