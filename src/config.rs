@@ -32,7 +32,7 @@ pub struct GlobalConfig {
     pub min_keepalive: u32,
     #[serde(default = "default_max_keepalive")]
     pub max_keepalive: u32,
-    #[serde(rename = "peer")]
+    #[serde(default, rename = "peer")]
     pub peers: HashMap<Key, Peer>,
 }
 
@@ -82,7 +82,7 @@ impl Default for UpdaterConfig {
 #[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Default, Clone, Debug)]
 pub struct Config {
-    pub state_directory: Option<PathBuf>,
+    pub runtime_directory: Option<PathBuf>,
 
     #[serde(flatten)]
     pub global: GlobalConfig,

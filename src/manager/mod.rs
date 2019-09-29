@@ -2,55 +2,11 @@
 //
 // See COPYING.
 
-use crate::{config, model, proto, wg};
+use crate::{config, fileutil, model, proto, wg};
 use std::ffi::OsString;
-#[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
-use std::path::{Path, PathBuf};
+use std::io;
+use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime};
-use std::{fs, io};
-
-fn update_file(path: &Path, data: &[u8]) -> io::Result<()> {
-    let mut tmp_path = OsString::from(path);
-    tmp_path.push(".tmp");
-    let tmp_path = PathBuf::from(tmp_path);
-
-    let mut file = {
-        let mut file = fs::OpenOptions::new();
-        file.append(true);
-        file.create_new(true);
-        #[cfg(unix)]
-        file.mode(0o0600);
-        file.open(&tmp_path)?
-    };
-
-    let r = io::Write::write_all(&mut file, data)
-        .and_then(|_| file.sync_data())
-        .and_then(|_| fs::rename(&tmp_path, &path));
-
-    if r.is_err() {
-        fs::remove_file(&tmp_path).unwrap_or_else(|e2| {
-            eprintln!("<3>Failed to clean up [{}]: {}", tmp_path.display(), e2);
-        });
-    }
-    r
-}
-
-fn load_file(path: &Path) -> io::Result<Option<Vec<u8>>> {
-    let mut file = match fs::File::open(&path) {
-        Ok(file) => file,
-        Err(e) => {
-            if e.kind() == io::ErrorKind::NotFound {
-                return Ok(None);
-            }
-            return Err(e);
-        }
-    };
-
-    let mut data = Vec::new();
-    io::Read::read_to_end(&mut file, &mut data)?;
-    Ok(Some(data))
-}
 
 struct Source {
     name: String,
@@ -70,18 +26,23 @@ pub struct Manager {
     global_config: config::GlobalConfig,
     sources: Vec<Source>,
     current: model::Config,
-    state_directory: Option<PathBuf>,
+    state_path: PathBuf,
     updater: updater::Updater,
 }
 
 impl Manager {
     pub fn new(ifname: OsString, c: config::Config) -> io::Result<Self> {
+        let runtime_directory = c.runtime_directory.ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "Runtime directory required")
+        })?;
+        let mut state_path = runtime_directory.clone();
+        state_path.push("state.json");
         let mut m = Self {
-            dev: wg::Device::open(ifname)?,
+            dev: wg::Device::open(ifname, runtime_directory)?,
             global_config: c.global,
             sources: vec![],
             current: model::Config::empty(),
-            state_directory: c.state_directory,
+            state_path,
             updater: updater::Updater::new(c.updater),
         };
 
@@ -94,19 +55,8 @@ impl Manager {
         Ok(m)
     }
 
-    fn state_path(&self) -> Option<PathBuf> {
-        let mut path = self.state_directory.as_ref()?.clone();
-        path.push("state.json");
-        Some(path)
-    }
-
     fn current_load(&mut self) -> bool {
-        let path = match self.state_path() {
-            Some(v) => v,
-            None => return false,
-        };
-
-        let data = match load_file(&path) {
+        let data = match fileutil::load(&self.state_path) {
             Ok(Some(data)) => data,
             Ok(None) => {
                 return false;
@@ -131,13 +81,8 @@ impl Manager {
     }
 
     fn current_update(&mut self, c: &model::Config) {
-        let path = match self.state_path() {
-            Some(v) => v,
-            None => return,
-        };
-
         let data = serde_json::to_vec(c).unwrap();
-        match update_file(&path, &data) {
+        match fileutil::update(&self.state_path, &data) {
             Ok(()) => {}
             Err(e) => {
                 eprintln!("<3>Failed to persist interface state: {}", e);

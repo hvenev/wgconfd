@@ -2,8 +2,8 @@
 //
 // See COPYING.
 
-use super::{load_file, update_file, Source};
-use crate::{config, proto};
+use super::Source;
+use crate::{config, fileutil, proto};
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -31,7 +31,7 @@ impl Updater {
         };
 
         let data = serde_json::to_vec(&src.data).unwrap();
-        match update_file(&path, &data) {
+        match fileutil::update(&path, &data) {
             Ok(()) => {}
             Err(e) => {
                 eprintln!("<4>Failed to cache [{}]: {}", &src.name, e);
@@ -40,12 +40,12 @@ impl Updater {
     }
 
     pub fn cache_load(&self, src: &mut Source) -> bool {
-        let path = match  self.cache_path(src) {
+        let path = match self.cache_path(src) {
             Some(v) => v,
             None => return false,
         };
 
-        let data = match load_file(&path) {
+        let data = match fileutil::load(&path) {
             Ok(Some(data)) => data,
             Ok(None) => {
                 return false;

@@ -2,19 +2,21 @@
 //
 // See COPYING.
 
-use crate::model;
+use crate::{fileutil, model};
 use std::ffi::{OsStr, OsString};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::{env, io};
+use std::{env, io, mem};
 
 pub struct Device {
     ifname: OsString,
+    tmpdir: PathBuf,
 }
 
 impl Device {
     #[inline]
-    pub fn open(ifname: OsString) -> io::Result<Self> {
-        let dev = Self { ifname };
+    pub fn open(ifname: OsString, tmpdir: PathBuf) -> io::Result<Self> {
+        let dev = Self { ifname, tmpdir };
         let _ = dev.get_public_key()?;
         Ok(dev)
     }
@@ -55,11 +57,10 @@ impl Device {
 
     pub fn apply_diff(&mut self, old: &model::Config, new: &model::Config) -> io::Result<()> {
         let mut proc = Self::wg_command();
-        proc.stdin(Stdio::piped());
         proc.arg("set");
         proc.arg(&self.ifname);
 
-        let mut psks = String::new();
+        let mut tmps = vec![];
 
         for (pubkey, conf) in &new.peers {
             let old_endpoint;
@@ -87,11 +88,16 @@ impl Device {
 
             if let Some(psk) = &conf.psk {
                 proc.arg("preshared-key");
-                proc.arg("/dev/stdin");
+                let mut tmp = self.tmpdir.clone();
+                tmp.push(format!("tmp-{}", tmps.len()));
+                let mut tmp = fileutil::Writer::new(tmp)?;
                 {
-                    use std::fmt::Write;
-                    writeln!(&mut psks, "{}", psk).unwrap();
+                    use io::Write;
+                    writeln!(tmp.file(), "{}", psk)?;
                 }
+                let tmp = tmp.done();
+                proc.arg(tmp.path());
+                tmps.push(tmp);
             }
 
             let mut ips = String::new();
@@ -124,14 +130,8 @@ impl Device {
             proc.arg("remove");
         }
 
-        let mut proc = proc.spawn()?;
-        {
-            use std::io::Write;
-            let stdin = proc.stdin.as_mut().unwrap();
-            write!(stdin, "{}", psks)?;
-        }
-
-        let r = proc.wait()?;
+        let r = proc.status()?;
+        mem::drop(tmps);
         if !r.success() {
             return Err(io::Error::new(io::ErrorKind::Other, "Child process failed"));
         }
