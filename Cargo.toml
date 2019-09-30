@@ -1,12 +1,13 @@
 [package]
 name = "wgconfd"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2018"
 authors = [ "Hristo Venev <hristo@venev.name>" ]
 license = "LGPL-3.0-or-later"
 description = "A configuration manager for WireGuard"
 repository = "https://git.venev.name/hristo/wgconfd"
 readme = "README.md"
+categories = [ "config" ]
 keywords = [ "wireguard" ]
 
 [dependencies]
