@@ -160,7 +160,7 @@ impl Source {
     }
 }
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
 struct SourceNextRepr {
     #[serde(default)]
     servers: Vec<Server>,
@@ -170,7 +170,7 @@ struct SourceNextRepr {
     update_at: SystemTime,
 }
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
 struct SourceRepr {
     #[serde(default)]
     servers: Vec<Server>,
