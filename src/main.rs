@@ -9,12 +9,7 @@ extern crate arrayref;
 
 use std::ffi::{OsStr, OsString};
 use std::time::Instant;
-use std::{env, process, thread};
-
-#[cfg(feature = "toml")]
-use std::{fs, io};
-#[cfg(feature = "toml")]
-use toml;
+use std::{env, mem, process, thread};
 
 mod config;
 mod fileutil;
@@ -23,20 +18,7 @@ mod model;
 mod proto;
 mod wg;
 
-#[cfg(feature = "toml")]
-fn file_config(path: OsString) -> io::Result<config::Config> {
-    let mut data = String::new();
-    {
-        use io::Read;
-        let mut config_file = fs::File::open(path)?;
-        config_file.read_to_string(&mut data)?;
-    }
-    let mut de = toml::Deserializer::new(&data);
-    serde::Deserialize::deserialize(&mut de)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
-}
-
-fn cli_config(args: &mut impl Iterator<Item = OsString>) -> Option<config::Config> {
+fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config> {
     enum State<'a> {
         Source(&'a mut config::Source),
         Peer(&'a mut config::Peer),
@@ -150,7 +132,8 @@ fn usage(argv0: &str) -> i32 {
     1
 }
 
-fn help(argv0: &str, _args: &mut impl Iterator<Item = OsString>) -> i32 {
+fn help(argv0: &str, args: Vec<OsString>) -> i32 {
+    mem::drop(args);
     print!(
         "\
 Usage:
@@ -172,36 +155,56 @@ fn maybe_get_var(out: &mut Option<impl From<OsString>>, var: impl AsRef<OsStr>) 
 }
 
 #[cfg(feature = "toml")]
-fn run_with_file(argv0: &str, args: &mut impl Iterator<Item = OsString>) -> i32 {
-    let ifname = match args.next() {
+fn run_with_file(argv0: &str, args: Vec<OsString>) -> i32 {
+    let (ifname, path) = match (move || {
+        let mut args = args.into_iter();
+        let a = args.next()?;
+        let b = args.next()?;
+        if args.next().is_some() {
+            return None;
+        }
+        Some((a, b))
+    })() {
         Some(v) => v,
         None => return usage(argv0),
     };
-    let path = match args.next() {
-        Some(v) => v,
-        None => return usage(argv0),
-    };
-    if args.next().is_some() {
-        return usage(argv0);
-    }
 
-    let config = match file_config(path) {
-        Ok(c) => c,
+    let data = fileutil::load(&path);
+    mem::drop(path);
+    let data = match data {
+        Ok(Some(v)) => v,
+        Ok(None) => {
+            eprintln!("<1>Configuration file not found");
+            return 1;
+        }
         Err(e) => {
-            eprintln!("<1>Failed to load config: {}", e);
+            eprintln!("<1>Failed to load config file: {}", e);
             return 1;
         }
     };
+
+    let config = toml::from_slice(&data);
+    mem::drop(data);
+    let config = match config {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("<1>Failed to parse config: {}", e);
+            return 1;
+        }
+    };
+
     run_daemon(ifname, config)
 }
 
 #[cfg(not(feature = "toml"))]
-fn run_with_file(_: &str, _: &mut impl Iterator<Item = OsString>) -> i32 {
+fn run_with_file(_argv0: &str, _args: Vec<OsString>) -> i32 {
     eprintln!("<1>Config loading not supported");
     1
 }
 
-fn run_with_cmdline(argv0: &str, args: &mut impl Iterator<Item = OsString>) -> i32 {
+fn run_with_cmdline(argv0: &str, args: Vec<OsString>) -> i32 {
+    let mut args = args.into_iter();
+
     let ifname = match args.next() {
         Some(v) => v,
         None => return usage(argv0),
@@ -214,6 +217,7 @@ fn run_with_cmdline(argv0: &str, args: &mut impl Iterator<Item = OsString>) -> i
             return 1;
         }
     };
+
     run_daemon(ifname, config)
 }
 
@@ -245,7 +249,8 @@ fn run_daemon(ifname: OsString, mut config: config::Config) -> i32 {
     }
 }
 
-fn run_check_source(argv0: &str, args: &mut impl Iterator<Item = OsString>) -> i32 {
+fn run_check_source(argv0: &str, args: Vec<OsString>) -> i32 {
+    let mut args = args.into_iter();
     let path = match args.next() {
         Some(v) => v,
         None => return usage(argv0),
@@ -272,7 +277,7 @@ fn main() {
     let argv0 = argv0.to_string_lossy();
 
     let mut args = Vec::new();
-    let mut run: for<'a> fn(&'a str, &'a mut std::vec::IntoIter<OsString>) -> i32 = run_with_file;
+    let mut run: for<'a> fn(&'a str, Vec<OsString>) -> i32 = run_with_file;
     let mut parse_args = true;
     for arg in iter_args {
         if !parse_args || !arg.to_string_lossy().starts_with('-') {
@@ -293,6 +298,5 @@ fn main() {
         }
     }
 
-    let mut args = args.into_iter();
-    process::exit(run(&argv0, &mut args));
+    process::exit(run(&argv0, args));
 }

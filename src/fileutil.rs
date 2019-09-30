@@ -84,7 +84,12 @@ pub fn update(path: &Path, data: &[u8]) -> io::Result<()> {
     tmp.sync_done()?.rename_to(path)
 }
 
-pub fn load(path: &Path) -> io::Result<Option<Vec<u8>>> {
+#[inline]
+pub fn load(path: &impl AsRef<Path>) -> io::Result<Option<Vec<u8>>> {
+    _load(path.as_ref())
+}
+
+fn _load(path: &Path) -> io::Result<Option<Vec<u8>>> {
     let mut file = match fs::File::open(&path) {
         Ok(file) => file,
         Err(e) => {
