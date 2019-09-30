@@ -60,7 +60,7 @@ The arguments are a sequence of global options and sources:
  - `max_keepalive TIME`
  - `refresh_sec TIME`
  - `source NAME URL [psk PSK] [ipv4 NET,NET,...] [ipv6 NET,NET,...] [required]`
- - `peer PUBKEY [psk PSK] [source NAME]
+ - `peer PUBKEY [psk PSK] [source NAME]`
 
 Source format
 ---
