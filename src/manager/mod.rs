@@ -1,6 +1,6 @@
-// Copyright 2019 Hristo Venev
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
-// See COPYING.
+// Copyright 2019 Hristo Venev
 
 use crate::{config, fileutil, model, proto, wg};
 use std::ffi::OsString;

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//
+// Copyright 2019 Hristo Venev
+
 use std::ffi::OsString;
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;

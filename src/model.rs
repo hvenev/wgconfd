@@ -1,6 +1,6 @@
-// Copyright 2019 Hristo Venev
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
-// See COPYING.
+// Copyright 2019 Hristo Venev
 
 // FIXME: arrayref needs to silence this per-expression
 #![allow(clippy::eval_order_dependence)]

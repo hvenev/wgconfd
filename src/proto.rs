@@ -1,6 +1,6 @@
-// Copyright 2019 Hristo Venev
+// SPDX-License-Identifier: LGPL-3.0-or-later
 //
-// See COPYING.
+// Copyright 2019 Hristo Venev
 
 use crate::model::{Endpoint, Ipv4Net, Ipv6Net, Key};
 use serde_derive;
