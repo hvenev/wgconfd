@@ -33,7 +33,7 @@ pub struct Manager {
 impl Manager {
     pub fn new(ifname: OsString, c: config::Config) -> io::Result<Self> {
         let runtime_directory = c.runtime_directory.ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "Runtime directory required")
+            io::Error::new(io::ErrorKind::InvalidInput, "runtime directory required")
         })?;
         let mut state_path = runtime_directory.clone();
         state_path.push("state.json");
@@ -122,7 +122,7 @@ impl Manager {
         }
         Err(io::Error::new(
             io::ErrorKind::Other,
-            format!("Failed to update required source [{}]", &s.config.url),
+            format!("failed to update required source [{}]", &s.config.url),
         ))
     }
 
@@ -196,9 +196,21 @@ impl Manager {
         let t_cfg = now + time_to_cfg;
 
         if config != self.current {
-            eprintln!("<5>Applying configuration update");
-            for err in &errors {
-                eprintln!("<{}>{}", if err.important() { '4' } else { '5' }, err);
+            if errors.is_empty() {
+                eprintln!("<5>Applying configuration update");
+            } else {
+                eprint!(
+                    "<{}>New update contains errors: ",
+                    if errors.iter().any(|err| err.important()) {
+                        '4'
+                    } else {
+                        '5'
+                    }
+                );
+                for err in &errors {
+                    eprint!("{}; ", err);
+                }
+                eprintln!("applying anyway");
             }
             self.dev.apply_diff(&self.current, &config)?;
             self.current_update(&config);

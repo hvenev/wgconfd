@@ -44,7 +44,7 @@ impl Device {
 
         let r = proc.output()?;
         if !r.status.success() {
-            return Err(io::Error::new(io::ErrorKind::Other, "Child process failed"));
+            return Err(io::Error::new(io::ErrorKind::Other, "child process failed"));
         }
 
         let mut out = r.stdout;
@@ -52,7 +52,7 @@ impl Device {
             out.remove(out.len() - 1);
         }
         model::Key::from_bytes(&out)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid public key"))
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid public key"))
     }
 
     pub fn apply_diff(&mut self, old: &model::Config, new: &model::Config) -> io::Result<()> {
@@ -133,7 +133,7 @@ impl Device {
         let r = proc.status()?;
         mem::drop(tmps);
         if !r.success() {
-            return Err(io::Error::new(io::ErrorKind::Other, "Child process failed"));
+            return Err(io::Error::new(io::ErrorKind::Other, "child process failed"));
         }
         Ok(())
     }

@@ -38,9 +38,9 @@ impl fmt::Display for Error {
             f,
             "{} [{}]/[{}]: {}",
             if self.important {
-                "Invalid peer"
+                "invalid peer"
             } else {
-                "Misconfigured peer"
+                "misconfigured peer"
             },
             self.src,
             self.peer,
@@ -108,7 +108,7 @@ impl<'a> ConfigBuilder<'a> {
 
         if p.peer.public_key == self.public_key {
             self.err.push(Error::new(
-                "The local peer cannot be a road warrior",
+                "the local peer cannot be a road warrior",
                 src,
                 &p.peer,
                 true,
@@ -122,7 +122,7 @@ impl<'a> ConfigBuilder<'a> {
             ent
         } else {
             self.err
-                .push(Error::new("Unknown base peer", src, &p.peer, true));
+                .push(Error::new("unknown base peer", src, &p.peer, true));
             return;
         };
         add_peer(&mut self.err, ent, src, &p.peer)
@@ -140,7 +140,7 @@ fn insert_peer<'b>(
 ) -> &'b mut model::Peer {
     match c.peers.entry(p.public_key) {
         hash_map::Entry::Occupied(ent) => {
-            err.push(Error::new("Duplicate public key", src, p, true));
+            err.push(Error::new("duplicate public key", src, p, true));
             ent.into_mut()
         }
         hash_map::Entry::Vacant(ent) => {
@@ -169,7 +169,7 @@ fn find_psk<'a>(
 
     if let Some(ref want_src) = &want.source {
         if *want_src != src.name {
-            return Err(Error::new("Peer source not allowed", src, p, true));
+            return Err(Error::new("peer source not allowed", src, p, true));
         }
     }
 
@@ -199,9 +199,9 @@ fn add_peer(err: &mut Vec<Error>, ent: &mut model::Peer, src: &Source, p: &proto
 
     if removed {
         let msg = if added {
-            "Some IPs removed"
+            "some IPs removed"
         } else {
-            "All IPs removed"
+            "all IPs removed"
         };
         err.push(Error::new(msg, src, p, !added));
     }
