@@ -7,8 +7,8 @@ use serde_derive;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct Source {
     pub url: String,
     pub psk: Option<Key>,
@@ -18,21 +18,17 @@ pub struct Source {
     pub required: bool,
 }
 
-#[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct Peer {
     pub source: Option<String>,
     pub psk: Option<Key>,
 }
 
-#[serde(deny_unknown_fields)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct GlobalConfig {
-    #[serde(default = "default_min_keepalive")]
     pub min_keepalive: u32,
-    #[serde(default = "default_max_keepalive")]
     pub max_keepalive: u32,
-    #[serde(default, rename = "peer")]
     pub peers: HashMap<Key, Peer>,
 }
 
@@ -59,13 +55,11 @@ impl GlobalConfig {
     }
 }
 
-#[serde(deny_unknown_fields)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct UpdaterConfig {
     pub cache_directory: Option<PathBuf>,
 
     // Number of seconds between regular updates.
-    #[serde(default = "default_refresh_sec")]
     pub refresh_sec: u32,
 }
 
@@ -79,19 +73,91 @@ impl Default for UpdaterConfig {
     }
 }
 
-#[serde(deny_unknown_fields)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Default, Clone, Debug)]
+#[serde(from = "ConfigRepr", into = "ConfigRepr")]
 pub struct Config {
     pub runtime_directory: Option<PathBuf>,
-
-    #[serde(flatten)]
     pub global: GlobalConfig,
-
-    #[serde(flatten)]
     pub updater: UpdaterConfig,
-
-    #[serde(rename = "source")]
     pub sources: HashMap<String, Source>,
+}
+
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConfigRepr {
+    runtime_directory: Option<PathBuf>,
+    cache_directory: Option<PathBuf>,
+
+    #[serde(default = "default_min_keepalive")]
+    min_keepalive: u32,
+    #[serde(default = "default_max_keepalive")]
+    max_keepalive: u32,
+    #[serde(default, rename = "peer")]
+    peers: HashMap<Key, Peer>,
+
+    #[serde(default = "default_refresh_sec")]
+    refresh_sec: u32,
+
+    #[serde(default, rename = "source")]
+    sources: HashMap<String, Source>,
+}
+
+impl From<Config> for ConfigRepr {
+    #[inline]
+    fn from(v: Config) -> Self {
+        let Config {
+            runtime_directory,
+            global,
+            updater,
+            sources,
+        } = v;
+        let GlobalConfig {
+            min_keepalive,
+            max_keepalive,
+            peers,
+        } = global;
+        let UpdaterConfig {
+            cache_directory,
+            refresh_sec,
+        } = updater;
+        Self {
+            runtime_directory,
+            cache_directory,
+            min_keepalive,
+            max_keepalive,
+            peers,
+            refresh_sec,
+            sources,
+        }
+    }
+}
+
+impl From<ConfigRepr> for Config {
+    #[inline]
+    fn from(v: ConfigRepr) -> Self {
+        let ConfigRepr {
+            runtime_directory,
+            cache_directory,
+            min_keepalive,
+            max_keepalive,
+            peers,
+            refresh_sec,
+            sources,
+        } = v;
+        Self {
+            runtime_directory,
+            global: GlobalConfig {
+                min_keepalive,
+                max_keepalive,
+                peers,
+            },
+            updater: UpdaterConfig {
+                cache_directory,
+                refresh_sec,
+            },
+            sources,
+        }
+    }
 }
 
 #[inline]

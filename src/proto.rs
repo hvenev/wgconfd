@@ -6,55 +6,146 @@ use crate::model::{Endpoint, Ipv4Net, Ipv6Net, Key};
 use serde_derive;
 use std::time::SystemTime;
 
-#[serde(deny_unknown_fields)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Peer {
     pub public_key: Key,
-    #[serde(default)]
     pub ipv4: Vec<Ipv4Net>,
-    #[serde(default)]
     pub ipv6: Vec<Ipv6Net>,
 }
 
-#[serde(deny_unknown_fields)]
+#[serde(from = "ServerRepr", into = "ServerRepr")]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Server {
-    #[serde(flatten)]
     pub peer: Peer,
     pub endpoint: Endpoint,
-    #[serde(default)]
     pub keepalive: u32,
 }
 
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ServerRepr {
+    public_key: Key,
+    #[serde(default)]
+    ipv4: Vec<Ipv4Net>,
+    #[serde(default)]
+    ipv6: Vec<Ipv6Net>,
+    endpoint: Endpoint,
+    #[serde(default)]
+    keepalive: u32,
+}
+
+impl From<Server> for ServerRepr {
+    #[inline]
+    fn from(v: Server) -> Self {
+        let Server {
+            peer,
+            endpoint,
+            keepalive,
+        } = v;
+        let Peer {
+            public_key,
+            ipv4,
+            ipv6,
+        } = peer;
+        Self {
+            public_key,
+            ipv4,
+            ipv6,
+            endpoint,
+            keepalive,
+        }
+    }
+}
+
+impl From<ServerRepr> for Server {
+    #[inline]
+    fn from(v: ServerRepr) -> Self {
+        let ServerRepr {
+            public_key,
+            ipv4,
+            ipv6,
+            endpoint,
+            keepalive,
+        } = v;
+        Self {
+            peer: Peer {
+                public_key,
+                ipv4,
+                ipv6,
+            },
+            endpoint,
+            keepalive,
+        }
+    }
+}
+
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[serde(from = "RoadWarriorRepr", into = "RoadWarriorRepr")]
 pub struct RoadWarrior {
-    #[serde(flatten)]
     pub peer: Peer,
     pub base: Key,
 }
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct RoadWarriorRepr {
+    public_key: Key,
+    #[serde(default)]
+    ipv4: Vec<Ipv4Net>,
+    #[serde(default)]
+    ipv6: Vec<Ipv6Net>,
+    pub base: Key,
+}
+
+impl From<RoadWarrior> for RoadWarriorRepr {
+    #[inline]
+    fn from(v: RoadWarrior) -> Self {
+        let RoadWarrior { peer, base } = v;
+        let Peer {
+            public_key,
+            ipv4,
+            ipv6,
+        } = peer;
+        Self {
+            public_key,
+            ipv4,
+            ipv6,
+            base,
+        }
+    }
+}
+
+impl From<RoadWarriorRepr> for RoadWarrior {
+    #[inline]
+    fn from(v: RoadWarriorRepr) -> Self {
+        let RoadWarriorRepr {
+            public_key,
+            ipv4,
+            ipv6,
+            base,
+        } = v;
+        Self {
+            peer: Peer {
+                public_key,
+                ipv4,
+                ipv6,
+            },
+            base,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SourceConfig {
-    #[serde(default)]
     pub servers: Vec<Server>,
-    #[serde(default)]
     pub road_warriors: Vec<RoadWarrior>,
 }
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
-pub struct SourceNextConfig {
-    #[serde(with = "serde_utc")]
-    pub update_at: SystemTime,
-    #[serde(flatten)]
-    pub config: SourceConfig,
-}
-
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[serde(from = "SourceRepr", into = "SourceRepr")]
 pub struct Source {
-    #[serde(flatten)]
     pub config: SourceConfig,
-    pub next: Option<SourceNextConfig>,
+    pub next: Option<(SystemTime, SourceConfig)>,
 }
 
 impl Source {
@@ -65,6 +156,85 @@ impl Source {
                 road_warriors: vec![],
             },
             next: None,
+        }
+    }
+}
+
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+struct SourceNextRepr {
+    #[serde(default)]
+    servers: Vec<Server>,
+    #[serde(default)]
+    road_warriors: Vec<RoadWarrior>,
+    #[serde(with = "serde_utc")]
+    update_at: SystemTime,
+}
+
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+struct SourceRepr {
+    #[serde(default)]
+    servers: Vec<Server>,
+    #[serde(default)]
+    road_warriors: Vec<RoadWarrior>,
+    next: Option<SourceNextRepr>,
+}
+
+impl From<Source> for SourceRepr {
+    #[inline]
+    fn from(v: Source) -> Self {
+        let Source { config, next } = v;
+        let SourceConfig {
+            servers,
+            road_warriors,
+        } = config;
+        Self {
+            servers,
+            road_warriors,
+            next: next.map(
+                #[inline]
+                |next| {
+                    let (update_at, next) = next;
+                    SourceNextRepr {
+                        servers: next.servers,
+                        road_warriors: next.road_warriors,
+                        update_at,
+                    }
+                },
+            ),
+        }
+    }
+}
+
+impl From<SourceRepr> for Source {
+    #[inline]
+    fn from(v: SourceRepr) -> Self {
+        let SourceRepr {
+            servers,
+            road_warriors,
+            next,
+        } = v;
+        Self {
+            config: SourceConfig {
+                servers,
+                road_warriors,
+            },
+            next: next.map(
+                #[inline]
+                |next| {
+                    let SourceNextRepr {
+                        servers,
+                        road_warriors,
+                        update_at,
+                    } = next;
+                    (
+                        update_at,
+                        SourceConfig {
+                            servers,
+                            road_warriors,
+                        },
+                    )
+                },
+            ),
         }
     }
 }

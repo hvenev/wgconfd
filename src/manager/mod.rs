@@ -139,10 +139,10 @@ impl Manager {
                 .next
                 .as_ref()
                 .and_then(|next| {
-                    if ts >= next.update_at {
-                        Some(&next.config)
+                    if ts >= next.0 {
+                        Some(&next.1)
                     } else {
-                        t_cfg = t_cfg.min(next.update_at);
+                        t_cfg = t_cfg.min(next.0);
                         None
                     }
                 })
