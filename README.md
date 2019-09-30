@@ -39,7 +39,15 @@ ipv6 = [ "2001:db8::5/128" ]
 
 All IP address ranges from the source URL not entirely contained within the config are discarded - if a source claims `0.0.0.0/0` but the config only allows `10.0.0.0/8`, nothing is allowed.
 
-The preshared key is applied to all peers defined in a source. If a single peer is defined in multiple sources, only the endpoint and preshared key from a single nondeterministic source are considered, but all IP ranges are allowed (TODO: add some per-pubkey filtering).
+The preshared key is applied to all peers defined in a source. If a single peer is defined in multiple sources, both the endpoint and preshared key are taken from a single source chosen nondeterministically, but all IP ranges are allowed.
+
+It is possible to override the preshared key for a specific public key, and to restrict the source that can define that peer:
+
+```toml
+[peer."yIOdSFrFQ1WPYS6IUWCsRjzw2Iqq0HMcyVVEXu5z+nM="]
+source = "remote2"
+psk = "QJmzt2PpKx8g98qrOtsNR4tB1bik+fMSabNNXCC5OUU="
+```
 
 Alternative configuration
 ---
@@ -52,6 +60,7 @@ The arguments are a sequence of global options and sources:
  - `max_keepalive TIME`
  - `refresh_sec TIME`
  - `source NAME URL [psk PSK] [ipv4 NET,NET,...] [ipv6 NET,NET,...] [required]`
+ - `peer PUBKEY [psk PSK] [source NAME]
 
 Source format
 ---

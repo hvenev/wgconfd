@@ -37,43 +37,64 @@ fn file_config(path: OsString) -> io::Result<config::Config> {
 }
 
 fn cli_config(args: &mut impl Iterator<Item = OsString>) -> Option<config::Config> {
+    enum State<'a> {
+        Source(&'a mut config::Source),
+        Peer(&'a mut config::Peer),
+        None,
+    }
+
     use std::str::FromStr;
 
     let mut cfg = config::Config::default();
 
-    let mut cur_src: Option<&mut config::Source> = None;
+    let mut cur = State::None;
     while let Some(key) = args.next() {
         let arg;
 
-        if let Some(ref mut s) = cur_src {
-            if key == "psk" {
-                arg = args.next()?;
-                let arg = arg.to_str()?;
-                s.psk = Some(model::Key::from_str(arg).ok()?);
-                continue;
-            }
-            if key == "ipv4" {
-                arg = args.next()?;
-                let arg = arg.to_str()?;
-                for arg in arg.split(',') {
-                    s.ipv4.insert(model::Ipv4Net::from_str(arg).ok()?);
+        match cur {
+            State::Source(ref mut s) => {
+                if key == "psk" {
+                    arg = args.next()?;
+                    let arg = arg.to_str()?;
+                    s.psk = Some(model::Key::from_str(arg).ok()?);
+                    continue;
                 }
-                continue;
-            }
-            if key == "ipv6" {
-                arg = args.next()?;
-                let arg = arg.to_str()?;
-                for arg in arg.split(',') {
-                    s.ipv6.insert(model::Ipv6Net::from_str(arg).ok()?);
+                if key == "ipv4" {
+                    arg = args.next()?;
+                    let arg = arg.to_str()?;
+                    for arg in arg.split(',') {
+                        s.ipv4.insert(model::Ipv4Net::from_str(arg).ok()?);
+                    }
+                    continue;
                 }
-                continue;
+                if key == "ipv6" {
+                    arg = args.next()?;
+                    let arg = arg.to_str()?;
+                    for arg in arg.split(',') {
+                        s.ipv6.insert(model::Ipv6Net::from_str(arg).ok()?);
+                    }
+                    continue;
+                }
+                if key == "required" {
+                    s.required = true;
+                    continue;
+                }
             }
-            if key == "required" {
-                s.required = true;
-                continue;
+            State::Peer(ref mut p) => {
+                if key == "psk" {
+                    arg = args.next()?;
+                    let arg = arg.to_str()?;
+                    p.psk = Some(model::Key::from_str(arg).ok()?);
+                    continue;
+                }
+                if key == "source" {
+                    p.source = Some(args.next()?.into_string().ok()?);
+                    continue;
+                }
             }
+            State::None => {}
         }
-        cur_src = None;
+        cur = State::None;
 
         if key == "min_keepalive" {
             arg = args.next()?;
@@ -96,12 +117,21 @@ fn cli_config(args: &mut impl Iterator<Item = OsString>) -> Option<config::Confi
         if key == "source" {
             let name = args.next()?.into_string().ok()?;
             let url = args.next()?.into_string().ok()?;
-            cur_src = Some(cfg.sources.entry(name).or_insert(config::Source {
+            cur = State::Source(cfg.sources.entry(name).or_insert(config::Source {
                 url,
                 psk: None,
                 ipv4: model::Ipv4Set::new(),
                 ipv6: model::Ipv6Set::new(),
                 required: false,
+            }));
+            continue;
+        }
+        if key == "peer" {
+            arg = args.next()?;
+            let key = model::Key::from_str(arg.to_str()?).ok()?;
+            cur = State::Peer(cfg.global.peers.entry(key).or_insert(config::Peer {
+                source: None,
+                psk: None,
             }));
             continue;
         }
