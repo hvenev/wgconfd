@@ -127,7 +127,7 @@ impl FromStr for Endpoint {
     fn from_str(s: &str) -> Result<Self, NetParseError> {
         use std::net;
         net::SocketAddr::from_str(s)
-            .map_err(|_| NetParseError)
+            .map_err(|_| NetParseError::BadAddress)
             .map(|v| Self {
                 address: match v.ip() {
                     net::IpAddr::V4(a) => a.to_ipv6_mapped(),

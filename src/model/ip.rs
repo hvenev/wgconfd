@@ -9,13 +9,22 @@ use std::str::FromStr;
 use std::{error, fmt, iter};
 
 #[derive(Debug)]
-pub struct NetParseError;
+pub enum NetParseError {
+    NoPrefixLen,
+    BadAddress,
+    BadPrefixLen,
+    NotNetworkAddress,
+}
 
 impl error::Error for NetParseError {}
 impl fmt::Display for NetParseError {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Invalid address")
+        f.write_str(match self {
+            Self::NoPrefixLen => "prefix length missing",
+            Self::BadAddress => "invalid address",
+            Self::BadPrefixLen => "prefix length out of range",
+            Self::NotNetworkAddress => "not a network address",
+        })
     }
 }
 
@@ -23,23 +32,38 @@ macro_rules! per_proto {
     ($nett:ident ($addrt:ident; $expecting:expr); $intt:ident($bytes:expr); $sett:ident) => {
         #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
         pub struct $nett {
-            pub address: $addrt,
-            pub prefix_len: u8,
+            address: $addrt,
+            prefix_len: u8,
         }
 
         impl $nett {
             const BITS: u8 = $bytes * 8;
 
-            pub fn is_valid(&self) -> bool {
-                let pfx = self.prefix_len;
-                if pfx > Self::BITS {
-                    return false;
+            #[inline]
+            pub fn new(address: $addrt, prefix_len: u8) -> Result<Self, NetParseError> {
+                if prefix_len > Self::BITS {
+                    return Err(NetParseError::BadPrefixLen);
                 }
-                if pfx == Self::BITS {
-                    return true;
+                if prefix_len != Self::BITS {
+                    let val: $intt = address.into();
+                    if val & ($intt::max_value() >> prefix_len) != 0 {
+                        return Err(NetParseError::NotNetworkAddress);
+                    }
                 }
-                let val: $intt = self.address.into();
-                val & ($intt::max_value() >> pfx) == 0
+                Ok(Self {
+                    address,
+                    prefix_len,
+                })
+            }
+
+            #[inline]
+            pub fn address(&self) -> $addrt {
+                self.address
+            }
+
+            #[inline]
+            pub fn prefix_len(&self) -> u8 {
+                self.prefix_len
             }
 
             pub fn contains(&self, other: &Self) -> bool {
@@ -71,16 +95,9 @@ macro_rules! per_proto {
             type Err = NetParseError;
             fn from_str(s: &str) -> Result<Self, NetParseError> {
                 let (addr, pfx) = pfx_split(s)?;
-                let addr = $addrt::from_str(addr).map_err(|_| NetParseError)?;
+                let addr = $addrt::from_str(addr).map_err(|_| NetParseError::BadAddress)?;
 
-                let r = Self {
-                    address: addr,
-                    prefix_len: pfx,
-                };
-                if !r.is_valid() {
-                    return Err(NetParseError);
-                }
-                Ok(r)
+                Self::new(addr, pfx)
             }
         }
 
@@ -117,14 +134,8 @@ macro_rules! per_proto {
                     de.deserialize_str(NetVisitor)
                 } else {
                     let buf = <[u8; $bytes + 1] as serde::Deserialize>::deserialize(de)?;
-                    let r = Self {
-                        address: (*array_ref![&buf, 0, $bytes]).into(),
-                        prefix_len: buf[$bytes],
-                    };
-                    if r.is_valid() {
-                        return Err(serde::de::Error::custom(NetParseError));
-                    }
-                    Ok(r)
+                    Self::new((*array_ref![&buf, 0, $bytes]).into(), buf[$bytes])
+                        .map_err(serde::de::Error::custom)
                 }
             }
         }
@@ -318,10 +329,10 @@ per_proto!(Ipv6Net(Ipv6Addr; "IPv6 network"); u128(16); Ipv6Set);
 fn pfx_split(s: &str) -> Result<(&str, u8), NetParseError> {
     let i = match s.find('/') {
         Some(v) => v,
-        None => return Err(NetParseError),
+        None => return Err(NetParseError::NoPrefixLen),
     };
     let (addr, pfx) = s.split_at(i);
-    let pfx = u8::from_str(&pfx[1..]).map_err(|_| NetParseError)?;
+    let pfx = u8::from_str(&pfx[1..]).map_err(|_| NetParseError::NoPrefixLen)?;
     Ok((addr, pfx))
 }
 
