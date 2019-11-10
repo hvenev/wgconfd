@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: CC0-1.0
+#
+# Copyright 2019 Hristo Venev
+
 [package]
 name = "wgconfd"
 version = "0.2.1"
