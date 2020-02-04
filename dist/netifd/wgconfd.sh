@@ -106,9 +106,9 @@ proto_wgconfd_setup__source_route() {
 proto_wgconfd_setup__peer() {
 	local val
 
-	config_get val "$1" key
+	config_get val "$1" public_key
 	[ -z "$val" ] && return
-	proto_wgconfd_setup__print public_key "$val"
+	proto_wgconfd_setup__print peer "$val"
 
 	config_get val "$1" endpoint
 	[ -n "$val" ] && proto_wgconfd_setup__print endpoint "$val"
