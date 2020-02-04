@@ -1,3 +1,16 @@
+v0.3.0
+---
+
+- Preshared keys are now always referred to by filename. The file must contain
+the base64 encoding of the key itself, followed by newline.
+
+- Sources are now given in `[[source]]` sections and the name is in a `name`
+attribute. Endpoints are taken from the first source that defines the peer.
+
+- Peer overrides can also set the endpoint and the keepalive timeout.
+
+- The OpenWRT procd init script has been replaced by a netifd protocol.
+
 v0.2.0
 ---
 
