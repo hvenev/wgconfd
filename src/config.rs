@@ -17,6 +17,8 @@ pub struct Source {
     pub ipv6: Ipv6Set,
     #[serde(default)]
     pub required: bool,
+    #[serde(default = "default_allow_road_warriors")]
+    pub allow_road_warriors: bool,
 }
 
 #[derive(serde_derive::Deserialize)]
@@ -130,6 +132,11 @@ impl From<ConfigRepr> for Config {
             sources,
         }
     }
+}
+
+#[inline]
+const fn default_allow_road_warriors() -> bool {
+    true
 }
 
 #[inline]

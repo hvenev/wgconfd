@@ -122,6 +122,15 @@ impl<'a> ConfigBuilder<'a> {
         }
 
         let ent = if p.base == self.public_key {
+            if !src.config.allow_road_warriors {
+                self.err.push(Error::new(
+                    "road warriors from this source not allowed",
+                    src,
+                    &p.peer,
+                    true,
+                ));
+                return;
+            }
             insert_peer(&mut self.c, &mut self.err, src, &p.peer, contact)
         } else if let Some(ent) = self.c.peers.get_mut(&p.base) {
             ent

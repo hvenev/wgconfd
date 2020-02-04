@@ -60,6 +60,14 @@ fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config
                     s.required = true;
                     continue;
                 }
+                if key == "deny_road_warriors" {
+                    s.allow_road_warriors = false;
+                    continue;
+                }
+                if key == "allow_road_warriors" {
+                    s.allow_road_warriors = true;
+                    continue;
+                }
             }
             State::Peer(ref mut p) => {
                 if key == "source" {
@@ -116,6 +124,7 @@ fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config
                 ipv4: model::Ipv4Set::new(),
                 ipv6: model::Ipv6Set::new(),
                 required: false,
+                allow_road_warriors: true,
             });
             cur = State::Source(cfg.sources.last_mut().unwrap());
             continue;
