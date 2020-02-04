@@ -24,11 +24,6 @@ impl Drop for Temp {
 
 impl Temp {
     #[inline]
-    pub fn path(&self) -> &Path {
-        &*self.path
-    }
-
-    #[inline]
     pub fn leave(mut self) -> PathBuf {
         mem::replace(&mut self.path, PathBuf::new())
     }
@@ -67,7 +62,7 @@ impl Writer {
     #[inline]
     pub fn sync_done(self) -> io::Result<Temp> {
         self.file.sync_data()?;
-        Ok(self.inner)
+        Ok(self.done())
     }
 
     #[inline]

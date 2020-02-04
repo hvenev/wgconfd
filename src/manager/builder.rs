@@ -135,7 +135,7 @@ fn insert_peer<'b>(
     err: &mut Vec<Error>,
     src: &Source,
     p: &proto::Peer,
-    psk: Option<&model::Key>,
+    psk: Option<&model::Secret>,
     update: impl for<'c> FnOnce(&'c mut model::Peer) -> (),
 ) -> &'b mut model::Peer {
     match c.peers.entry(p.public_key) {
@@ -161,7 +161,7 @@ fn find_psk<'a>(
     gc: &'a config::GlobalConfig,
     src: &'a Source,
     p: &proto::Peer,
-) -> Result<Option<&'a model::Key>, Error> {
+) -> Result<Option<&'a model::Secret>, Error> {
     let want = match gc.peers.get(&p.public_key) {
         Some(v) => v,
         None => return Ok(None),

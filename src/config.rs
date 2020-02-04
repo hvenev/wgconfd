@@ -2,7 +2,7 @@
 //
 // Copyright 2019 Hristo Venev
 
-use crate::model::{Ipv4Set, Ipv6Set, Key};
+use crate::model::{Ipv4Set, Ipv6Set, Key, Secret};
 use serde_derive;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -11,7 +11,7 @@ use std::path::PathBuf;
 #[serde(deny_unknown_fields)]
 pub struct Source {
     pub url: String,
-    pub psk: Option<Key>,
+    pub psk: Option<Secret>,
     pub ipv4: Ipv4Set,
     pub ipv6: Ipv6Set,
     #[serde(default)]
@@ -22,7 +22,7 @@ pub struct Source {
 #[serde(deny_unknown_fields)]
 pub struct Peer {
     pub source: Option<String>,
-    pub psk: Option<Key>,
+    pub psk: Option<Secret>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

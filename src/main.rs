@@ -37,8 +37,7 @@ fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config
             State::Source(ref mut s) => {
                 if key == "psk" {
                     arg = args.next()?;
-                    let arg = arg.to_str()?;
-                    s.psk = Some(model::Key::from_str(arg).ok()?);
+                    s.psk = Some(model::Secret::new(arg.into()));
                     continue;
                 }
                 if key == "ipv4" {
@@ -65,8 +64,7 @@ fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config
             State::Peer(ref mut p) => {
                 if key == "psk" {
                     arg = args.next()?;
-                    let arg = arg.to_str()?;
-                    p.psk = Some(model::Key::from_str(arg).ok()?);
+                    p.psk = Some(model::Secret::new(arg.into()));
                     continue;
                 }
                 if key == "source" {
@@ -137,7 +135,7 @@ fn help(argv0: &str, args: Vec<OsString>) -> i32 {
     print!(
         "\
 Usage:
-    {} IFNAME CONFIG         - run daemon on iterface
+    {} IFNAME CONFIG         - run daemon on interface
     {} --check-source PATH   - validate source JSON
     {} --cmdline IFNAME ...  - run daemon using config passed as arguments
 ",

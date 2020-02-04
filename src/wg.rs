@@ -2,21 +2,19 @@
 //
 // Copyright 2019 Hristo Venev
 
-use crate::{fileutil, model};
+use crate::model;
 use std::ffi::{OsStr, OsString};
-use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::{env, io, mem};
+use std::{env, io};
 
 pub struct Device {
     ifname: OsString,
-    tmpdir: PathBuf,
 }
 
 impl Device {
     #[inline]
-    pub fn open(ifname: OsString, tmpdir: PathBuf) -> io::Result<Self> {
-        let dev = Self { ifname, tmpdir };
+    pub fn open(ifname: OsString) -> io::Result<Self> {
+        let dev = Self { ifname };
         let _ = dev.get_public_key()?;
         Ok(dev)
     }
@@ -60,8 +58,6 @@ impl Device {
         proc.arg("set");
         proc.arg(&self.ifname);
 
-        let mut tmps = vec![];
-
         for (pubkey, conf) in &new.peers {
             let old_endpoint;
             if let Some(old_peer) = old.peers.get(pubkey) {
@@ -88,16 +84,7 @@ impl Device {
 
             if let Some(psk) = &conf.psk {
                 proc.arg("preshared-key");
-                let mut tmp = self.tmpdir.clone();
-                tmp.push(format!("tmp-{}", tmps.len()));
-                let mut tmp = fileutil::Writer::new(tmp)?;
-                {
-                    use io::Write;
-                    writeln!(tmp.file(), "{}", psk)?;
-                }
-                let tmp = tmp.done();
-                proc.arg(tmp.path());
-                tmps.push(tmp);
+                proc.arg(psk.path());
             }
 
             let mut ips = String::new();
@@ -131,7 +118,6 @@ impl Device {
         }
 
         let r = proc.status()?;
-        mem::drop(tmps);
         if !r.success() {
             return Err(io::Error::new(io::ErrorKind::Other, "child process failed"));
         }

@@ -8,6 +8,7 @@
 use base64;
 use std::collections::HashMap;
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 mod ip;
@@ -26,6 +27,21 @@ impl Key {
             return Err(base64::DecodeError::InvalidLength);
         }
         Ok(v)
+    }
+}
+
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+pub struct Secret(PathBuf);
+
+impl Secret {
+    #[inline]
+    pub fn new(path: PathBuf) -> Self {
+        Self(path)
+    }
+
+    #[inline]
+    pub fn path(&self) -> &Path {
+        &self.0
     }
 }
 
@@ -184,7 +200,7 @@ impl<'de> serde::Deserialize<'de> for Endpoint {
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Peer {
     pub endpoint: Option<Endpoint>,
-    pub psk: Option<Key>,
+    pub psk: Option<Secret>,
     pub keepalive: u32,
     pub ipv4: Vec<Ipv4Net>,
     pub ipv6: Vec<Ipv6Net>,
