@@ -7,7 +7,7 @@ use serde_derive;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
     pub name: String,
@@ -19,7 +19,7 @@ pub struct Source {
     pub required: bool,
 }
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
+#[derive(serde_derive::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Peer {
     pub source: Option<String>,
@@ -28,7 +28,6 @@ pub struct Peer {
     pub keepalive: Option<u32>,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct GlobalConfig {
     pub min_keepalive: u32,
     pub max_keepalive: u32,
@@ -58,7 +57,6 @@ impl GlobalConfig {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct UpdaterConfig {
     pub cache_directory: Option<PathBuf>,
 
@@ -76,8 +74,9 @@ impl Default for UpdaterConfig {
     }
 }
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Default, Clone, Debug)]
-#[serde(from = "ConfigRepr", into = "ConfigRepr")]
+#[derive(serde_derive::Deserialize)]
+#[serde(from = "ConfigRepr")]
+#[derive(Default)]
 pub struct Config {
     pub runtime_directory: Option<PathBuf>,
     pub global: GlobalConfig,
@@ -85,7 +84,7 @@ pub struct Config {
     pub sources: Vec<Source>,
 }
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(serde_derive::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ConfigRepr {
     runtime_directory: Option<PathBuf>,
@@ -103,36 +102,6 @@ struct ConfigRepr {
 
     #[serde(default, rename = "source")]
     sources: Vec<Source>,
-}
-
-impl From<Config> for ConfigRepr {
-    #[inline]
-    fn from(v: Config) -> Self {
-        let Config {
-            runtime_directory,
-            global,
-            updater,
-            sources,
-        } = v;
-        let GlobalConfig {
-            min_keepalive,
-            max_keepalive,
-            peers,
-        } = global;
-        let UpdaterConfig {
-            cache_directory,
-            refresh_sec,
-        } = updater;
-        Self {
-            runtime_directory,
-            cache_directory,
-            min_keepalive,
-            max_keepalive,
-            peers,
-            refresh_sec,
-            sources,
-        }
-    }
 }
 
 impl From<ConfigRepr> for Config {
