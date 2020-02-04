@@ -18,7 +18,7 @@ pub struct Error {
 impl Error {
     fn new(err: &'static str, src: &Source, p: &proto::Peer, important: bool) -> Self {
         Self {
-            src: src.name.clone(),
+            src: src.config.name.clone(),
             peer: p.public_key,
             important,
             err,
@@ -170,7 +170,7 @@ fn peer_contact<'a>(
 
     if let Some(pc) = gc.peers.get(&p.public_key) {
         if let Some(ref want_src) = &pc.source {
-            if *want_src != src.name {
+            if *want_src != src.config.name {
                 return Err(Error::new("peer source not allowed", src, p, true));
             }
         }

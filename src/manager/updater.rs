@@ -20,7 +20,7 @@ impl Updater {
 
     fn cache_path(&self, s: &Source) -> Option<PathBuf> {
         let mut p = self.config.cache_directory.as_ref()?.clone();
-        p.push(&s.name);
+        p.push(&s.config.name);
         Some(p)
     }
 
@@ -34,7 +34,7 @@ impl Updater {
         match fileutil::update(&path, &data) {
             Ok(()) => {}
             Err(e) => {
-                eprintln!("<4>Failed to cache [{}]: {}", &src.name, e);
+                eprintln!("<4>Failed to cache [{}]: {}", &src.config.name, e);
             }
         }
     }
@@ -51,7 +51,7 @@ impl Updater {
                 return false;
             }
             Err(e) => {
-                eprintln!("<3>Failed to read [{}] from cache: {}", &src.name, e);
+                eprintln!("<3>Failed to read [{}] from cache: {}", &src.config.name, e);
                 return false;
             }
         };
@@ -60,7 +60,7 @@ impl Updater {
         src.data = match serde::Deserialize::deserialize(&mut de) {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("<3>Failed to load [{}] from cache: {}", &src.name, e);
+                eprintln!("<3>Failed to load [{}] from cache: {}", &src.config.name, e);
                 return false;
             }
         };

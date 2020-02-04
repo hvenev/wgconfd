@@ -10,6 +10,7 @@ use std::path::PathBuf;
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
+    pub name: String,
     pub url: String,
     pub psk: Option<Secret>,
     pub ipv4: Ipv4Set,
@@ -81,7 +82,7 @@ pub struct Config {
     pub runtime_directory: Option<PathBuf>,
     pub global: GlobalConfig,
     pub updater: UpdaterConfig,
-    pub sources: HashMap<String, Source>,
+    pub sources: Vec<Source>,
 }
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize)]
@@ -101,7 +102,7 @@ struct ConfigRepr {
     refresh_sec: u32,
 
     #[serde(default, rename = "source")]
-    sources: HashMap<String, Source>,
+    sources: Vec<Source>,
 }
 
 impl From<Config> for ConfigRepr {

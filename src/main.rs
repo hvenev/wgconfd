@@ -109,13 +109,15 @@ fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config
         if key == "source" {
             let name = args.next()?.into_string().ok()?;
             let url = args.next()?.into_string().ok()?;
-            cur = State::Source(cfg.sources.entry(name).or_insert(config::Source {
+            cfg.sources.push(config::Source {
+                name,
                 url,
                 psk: None,
                 ipv4: model::Ipv4Set::new(),
                 ipv6: model::Ipv6Set::new(),
                 required: false,
-            }));
+            });
+            cur = State::Source(cfg.sources.last_mut().unwrap());
             continue;
         }
         if key == "peer" {

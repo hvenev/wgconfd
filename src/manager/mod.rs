@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime};
 
 struct Source {
-    name: String,
     config: config::Source,
     data: proto::Source,
     next_update: Instant,
@@ -50,8 +49,8 @@ impl Manager {
 
         let _ = m.current_load();
 
-        for (name, cfg) in c.sources {
-            m.add_source(name, cfg)?;
+        for cfg in c.sources {
+            m.add_source(cfg)?;
         }
 
         Ok(m)
@@ -92,9 +91,8 @@ impl Manager {
         }
     }
 
-    fn add_source(&mut self, name: String, config: config::Source) -> io::Result<()> {
+    fn add_source(&mut self, config: config::Source) -> io::Result<()> {
         let mut s = Source {
-            name,
             config,
             data: proto::Source::empty(),
             next_update: Instant::now(),
