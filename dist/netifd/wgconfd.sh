@@ -63,6 +63,9 @@ proto_wgconfd_setup__source() {
 	config_get_bool val "$1" required 0
 	[ "$val" -eq 1 ] && proto_wgconfd_setup__print required
 
+	config_get_bool val "$1" allow_road_warriors 1
+	[ "$val" -eq 0 ] && proto_wgconfd_setup__print deny_road_warriors
+
 	config_list_foreach "$1" ipv4 proto_wgconfd_setup__source_route ipv4 32
 
 	config_list_foreach "$1" ipv6 proto_wgconfd_setup__source_route ipv6 128
@@ -107,8 +110,14 @@ proto_wgconfd_setup__peer() {
 	[ -z "$val" ] && return
 	proto_wgconfd_setup__print public_key "$val"
 
+	config_get val "$1" endpoint
+	[ -n "$val" ] && proto_wgconfd_setup__print endpoint "$val"
+
 	config_get val "$1" psk
 	[ -n "$val" ] && proto_wgconfd_setup__print psk "$val"
+
+	config_get val "$1" keepalive
+	[ -n "$val" ] && proto_wgconfd_setup__print keepalive "$val"
 
 	config_get val "$1" source
 	[ -n "$val" ] && proto_wgconfd_setup__print source "$val"
