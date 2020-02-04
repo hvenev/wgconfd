@@ -98,7 +98,7 @@ impl<'a> ConfigBuilder<'a> {
 
     #[inline]
     pub fn add_road_warrior(&mut self, src: &Source, p: &proto::RoadWarrior) {
-        let psk = match find_psk(&self.gc, src, &p.peer) {
+        let psk = match find_psk(self.gc, src, &p.peer) {
             Ok(v) => v,
             Err(e) => {
                 self.err.push(e);
