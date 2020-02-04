@@ -11,6 +11,7 @@ pub struct Peer {
     pub public_key: Key,
     pub ipv4: Vec<Ipv4Net>,
     pub ipv6: Vec<Ipv6Net>,
+    pub keepalive: u32,
 }
 
 #[serde(from = "ServerRepr", into = "ServerRepr")]
@@ -18,7 +19,6 @@ pub struct Peer {
 pub struct Server {
     pub peer: Peer,
     pub endpoint: Endpoint,
-    pub keepalive: u32,
 }
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize)]
@@ -29,23 +29,20 @@ struct ServerRepr {
     ipv4: Vec<Ipv4Net>,
     #[serde(default)]
     ipv6: Vec<Ipv6Net>,
-    endpoint: Endpoint,
     #[serde(default)]
     keepalive: u32,
+    endpoint: Endpoint,
 }
 
 impl From<Server> for ServerRepr {
     #[inline]
     fn from(v: Server) -> Self {
-        let Server {
-            peer,
-            endpoint,
-            keepalive,
-        } = v;
+        let Server { peer, endpoint } = v;
         let Peer {
             public_key,
             ipv4,
             ipv6,
+            keepalive,
         } = peer;
         Self {
             public_key,
@@ -64,17 +61,17 @@ impl From<ServerRepr> for Server {
             public_key,
             ipv4,
             ipv6,
-            endpoint,
             keepalive,
+            endpoint,
         } = v;
         Self {
             peer: Peer {
                 public_key,
                 ipv4,
                 ipv6,
+                keepalive,
             },
             endpoint,
-            keepalive,
         }
     }
 }
@@ -94,7 +91,9 @@ pub struct RoadWarriorRepr {
     ipv4: Vec<Ipv4Net>,
     #[serde(default)]
     ipv6: Vec<Ipv6Net>,
-    pub base: Key,
+    #[serde(default)]
+    keepalive: u32,
+    base: Key,
 }
 
 impl From<RoadWarrior> for RoadWarriorRepr {
@@ -105,11 +104,13 @@ impl From<RoadWarrior> for RoadWarriorRepr {
             public_key,
             ipv4,
             ipv6,
+            keepalive,
         } = peer;
         Self {
             public_key,
             ipv4,
             ipv6,
+            keepalive,
             base,
         }
     }
@@ -122,6 +123,7 @@ impl From<RoadWarriorRepr> for RoadWarrior {
             public_key,
             ipv4,
             ipv6,
+            keepalive,
             base,
         } = v;
         Self {
@@ -129,6 +131,7 @@ impl From<RoadWarriorRepr> for RoadWarrior {
                 public_key,
                 ipv4,
                 ipv6,
+                keepalive,
             },
             base,
         }

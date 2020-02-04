@@ -49,6 +49,12 @@ impl fmt::Display for Error {
     }
 }
 
+struct PeerContact<'a> {
+    endpoint: Option<model::Endpoint>,
+    psk: Option<&'a model::Secret>,
+    keepalive: u32,
+}
+
 pub(super) struct ConfigBuilder<'a> {
     c: model::Config,
     err: Vec<Error>,
@@ -76,29 +82,28 @@ impl<'a> ConfigBuilder<'a> {
     pub fn add_server(&mut self, src: &Source, p: &proto::Server) {
         let gc = self.gc;
 
-        let psk = match find_psk(gc, src, &p.peer) {
+        let mut contact = match peer_contact(gc, src, &p.peer) {
             Ok(v) => v,
             Err(e) => {
                 self.err.push(e);
                 return;
             }
         };
+        if contact.endpoint.is_none() {
+            contact.endpoint = Some(p.endpoint);
+        }
 
         if p.peer.public_key == self.public_key {
             return;
         }
 
-        let ent = insert_peer(&mut self.c, &mut self.err, src, &p.peer, psk, |ent| {
-            ent.endpoint = Some(p.endpoint);
-            ent.keepalive = gc.fix_keepalive(p.keepalive);
-        });
-
+        let ent = insert_peer(&mut self.c, &mut self.err, src, &p.peer, contact);
         add_peer(&mut self.err, ent, src, &p.peer)
     }
 
     #[inline]
     pub fn add_road_warrior(&mut self, src: &Source, p: &proto::RoadWarrior) {
-        let psk = match find_psk(self.gc, src, &p.peer) {
+        let contact = match peer_contact(self.gc, src, &p.peer) {
             Ok(v) => v,
             Err(e) => {
                 self.err.push(e);
@@ -117,7 +122,7 @@ impl<'a> ConfigBuilder<'a> {
         }
 
         let ent = if p.base == self.public_key {
-            insert_peer(&mut self.c, &mut self.err, src, &p.peer, psk, |_| {})
+            insert_peer(&mut self.c, &mut self.err, src, &p.peer, contact)
         } else if let Some(ent) = self.c.peers.get_mut(&p.base) {
             ent
         } else {
@@ -135,45 +140,55 @@ fn insert_peer<'b>(
     err: &mut Vec<Error>,
     src: &Source,
     p: &proto::Peer,
-    psk: Option<&model::Secret>,
-    update: impl for<'c> FnOnce(&'c mut model::Peer) -> (),
+    contact: PeerContact<'_>,
 ) -> &'b mut model::Peer {
     match c.peers.entry(p.public_key) {
         hash_map::Entry::Occupied(ent) => {
             err.push(Error::new("duplicate public key", src, p, true));
             ent.into_mut()
         }
-        hash_map::Entry::Vacant(ent) => {
-            let ent = ent.insert(model::Peer {
-                endpoint: None,
-                psk: psk.cloned(),
-                keepalive: 0,
-                ipv4: vec![],
-                ipv6: vec![],
-            });
-            update(ent);
-            ent
-        }
+        hash_map::Entry::Vacant(ent) => ent.insert(model::Peer {
+            endpoint: contact.endpoint,
+            psk: contact.psk.cloned(),
+            keepalive: contact.keepalive,
+            ipv4: vec![],
+            ipv6: vec![],
+        }),
     }
 }
 
-fn find_psk<'a>(
+fn peer_contact<'a>(
     gc: &'a config::GlobalConfig,
     src: &'a Source,
     p: &proto::Peer,
-) -> Result<Option<&'a model::Secret>, Error> {
-    let want = match gc.peers.get(&p.public_key) {
-        Some(v) => v,
-        None => return Ok(None),
+) -> Result<PeerContact<'a>, Error> {
+    let mut r = PeerContact {
+        psk: src.config.psk.as_ref(),
+        endpoint: None,
+        keepalive: gc.fix_keepalive(p.keepalive),
     };
 
-    if let Some(ref want_src) = &want.source {
-        if *want_src != src.name {
-            return Err(Error::new("peer source not allowed", src, p, true));
+    if let Some(pc) = gc.peers.get(&p.public_key) {
+        if let Some(ref want_src) = &pc.source {
+            if *want_src != src.name {
+                return Err(Error::new("peer source not allowed", src, p, true));
+            }
+        }
+
+        if let Some(endpoint) = pc.endpoint {
+            r.endpoint = Some(endpoint);
+        }
+
+        if let Some(ref psk) = &pc.psk {
+            r.psk = Some(psk);
+        }
+
+        if let Some(keepalive) = pc.keepalive {
+            r.keepalive = keepalive;
         }
     }
 
-    Ok(want.psk.as_ref().or_else(|| src.config.psk.as_ref()))
+    Ok(r)
 }
 
 fn add_peer(err: &mut Vec<Error>, ent: &mut model::Peer, src: &Source, p: &proto::Peer) {

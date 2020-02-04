@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 //
-// Copyright 2019 Hristo Venev
+// Copyright 2019,2020 Hristo Venev
 
-use crate::model::{Ipv4Set, Ipv6Set, Key, Secret};
+use crate::model::{Endpoint, Ipv4Set, Ipv6Set, Key, Secret};
 use serde_derive;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -22,7 +22,9 @@ pub struct Source {
 #[serde(deny_unknown_fields)]
 pub struct Peer {
     pub source: Option<String>,
+    pub endpoint: Option<Endpoint>,
     pub psk: Option<Secret>,
+    pub keepalive: Option<u32>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

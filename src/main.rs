@@ -62,13 +62,25 @@ fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config
                 }
             }
             State::Peer(ref mut p) => {
+                if key == "source" {
+                    p.source = Some(args.next()?.into_string().ok()?);
+                    continue;
+                }
+                if key == "endpoint" {
+                    arg = args.next()?;
+                    let arg = arg.to_str()?;
+                    p.endpoint = Some(model::Endpoint::from_str(arg).ok()?);
+                    continue;
+                }
                 if key == "psk" {
                     arg = args.next()?;
                     p.psk = Some(model::Secret::new(arg.into()));
                     continue;
                 }
-                if key == "source" {
-                    p.source = Some(args.next()?.into_string().ok()?);
+                if key == "keepalive" {
+                    arg = args.next()?;
+                    let arg = arg.to_str()?;
+                    p.keepalive = Some(u32::from_str(arg).ok()?);
                     continue;
                 }
             }
@@ -111,7 +123,9 @@ fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config
             let key = model::Key::from_str(arg.to_str()?).ok()?;
             cur = State::Peer(cfg.global.peers.entry(key).or_insert(config::Peer {
                 source: None,
+                endpoint: None,
                 psk: None,
+                keepalive: None,
             }));
             continue;
         }
