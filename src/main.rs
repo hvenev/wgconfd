@@ -161,8 +161,8 @@ fn help(argv0: &str, args: Vec<OsString>) -> i32 {
         "\
 Usage:
     {} IFNAME CONFIG         - run daemon on interface
-    {} --check-source PATH   - validate source JSON
     {} --cmdline IFNAME ...  - run daemon using config passed as arguments
+    {} --check-source PATH   - validate source JSON
 ",
         argv0, argv0, argv0
     );

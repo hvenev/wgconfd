@@ -1,3 +1,4 @@
 /Cargo.lock
 /target
+/man/*.[1-8]
 **/*.rs.bk
