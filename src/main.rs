@@ -169,6 +169,10 @@ Usage:
     1
 }
 
+fn run_usage(argv0: &str, _: Vec<OsString>) -> i32 {
+    usage(argv0)
+}
+
 fn maybe_get_var(out: &mut Option<impl From<OsString>>, var: impl AsRef<OsStr>) {
     let var = var.as_ref();
     if let Some(s) = env::var_os(var) {
@@ -301,25 +305,26 @@ fn main() {
 
     let mut args = Vec::new();
     let mut run: for<'a> fn(&'a str, Vec<OsString>) -> i32 = run_with_file;
-    let mut parse_args = true;
-    for arg in iter_args {
-        if !parse_args || !arg.to_string_lossy().starts_with('-') {
+    for arg in &mut iter_args {
+        if !arg.to_string_lossy().starts_with('-') {
             args.push(arg);
         } else if arg == "--" {
-            parse_args = false;
+            break;
         } else if arg == "-h" || arg == "--help" {
             run = help;
             break;
         } else if arg == "--check-source" {
             run = run_check_source;
-            parse_args = false;
+            break;
         } else if arg == "--cmdline" {
             run = run_with_cmdline;
-            parse_args = false;
+            break;
         } else {
-            usage(&argv0);
+            run = run_usage;
+            break;
         }
     }
+    args.extend(iter_args);
 
     process::exit(run(&argv0, args));
 }
