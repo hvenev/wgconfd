@@ -18,7 +18,9 @@ impl Drop for Temp {
         if self.path.as_os_str().is_empty() {
             return;
         }
-        fs::remove_file(&self.path).expect("failed to clean up temporary file");
+        if let Err(err) = fs::remove_file(&self.path) {
+            eprintln!("<3>Failed to clean up temporary file: {}", err);
+        }
     }
 }
 
