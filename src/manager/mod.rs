@@ -81,14 +81,9 @@ impl Manager {
         }
     }
 
-    fn current_update(&mut self, c: &model::Config) {
-        let data = serde_json::to_vec(c).unwrap();
-        match fileutil::update(&self.state_path, &data) {
-            Ok(()) => {}
-            Err(e) => {
-                eprintln!("<3>Failed to persist interface state: {}", e);
-            }
-        }
+    fn current_update(&mut self, c: &model::Config) -> io::Result<()> {
+        let data = serde_json::to_vec(c)?;
+        fileutil::update(&self.state_path, &data)
     }
 
     fn add_source(&mut self, config: config::Source) -> io::Result<()> {
@@ -213,7 +208,9 @@ impl Manager {
                 eprintln!("applying anyway");
             }
             self.dev.apply_diff(&self.current, &config)?;
-            self.current_update(&config);
+            if let Err(e) = self.current_update(&config) {
+                eprintln!("<3>Failed to persist interface state: {}", e);
+            }
             self.current = config;
         }
 
