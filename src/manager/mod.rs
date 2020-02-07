@@ -58,12 +58,11 @@ impl Manager {
 
     fn current_load(&mut self) -> bool {
         let data = match fileutil::load(&self.state_path) {
-            Ok(Some(data)) => data,
-            Ok(None) => {
-                return false;
-            }
+            Ok(data) => data,
             Err(e) => {
-                eprintln!("<3>Failed to read interface state: {}", e);
+                if e.kind() != io::ErrorKind::NotFound {
+                    eprintln!("<3>Failed to read interface state: {}", e);
+                }
                 return false;
             }
         };

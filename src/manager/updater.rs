@@ -46,12 +46,11 @@ impl Updater {
         };
 
         let data = match fileutil::load(&path) {
-            Ok(Some(data)) => data,
-            Ok(None) => {
-                return false;
-            }
+            Ok(data) => data,
             Err(e) => {
-                eprintln!("<3>Failed to read [{}] from cache: {}", &src.config.name, e);
+                if e.kind() != io::ErrorKind::NotFound {
+                    eprintln!("<3>Failed to read [{}] from cache: {}", &src.config.name, e);
+                }
                 return false;
             }
         };

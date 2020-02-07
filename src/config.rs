@@ -12,6 +12,7 @@ use std::path::PathBuf;
 pub struct Source {
     pub name: String,
     pub url: String,
+    #[serde(default, deserialize_with = "deserialize_key_from_file")]
     pub psk: Option<Secret>,
     pub ipv4: Ipv4Set,
     pub ipv6: Ipv6Set,
@@ -26,6 +27,7 @@ pub struct Source {
 pub struct Peer {
     pub source: Option<String>,
     pub endpoint: Option<Endpoint>,
+    #[serde(default, deserialize_with = "deserialize_key_from_file")]
     pub psk: Option<Secret>,
     pub keepalive: Option<u32>,
 }
@@ -152,4 +154,12 @@ const fn default_max_keepalive() -> u32 {
 #[inline]
 const fn default_refresh_sec() -> u32 {
     1200
+}
+
+fn deserialize_key_from_file<'de, D>(d: D) -> Result<Option<Secret>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let path = <PathBuf as serde::Deserialize<'de>>::deserialize(d)?;
+    Secret::from_file(&path).map_err(|e| <D::Error as serde::de::Error>::custom(e.to_string()))
 }

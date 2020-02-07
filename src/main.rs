@@ -37,7 +37,7 @@ fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config
             State::Source(ref mut s) => {
                 if key == "psk" {
                     arg = args.next()?;
-                    s.psk = Some(model::Secret::new(arg.into()));
+                    s.psk = model::Secret::from_file(&arg).ok()?;
                     continue;
                 }
                 if key == "ipv4" {
@@ -82,7 +82,7 @@ fn cli_config(mut args: impl Iterator<Item = OsString>) -> Option<config::Config
                 }
                 if key == "psk" {
                     arg = args.next()?;
-                    p.psk = Some(model::Secret::new(arg.into()));
+                    p.psk = model::Secret::from_file(&arg).ok()?;
                     continue;
                 }
                 if key == "keepalive" {
@@ -199,11 +199,7 @@ fn run_with_file(argv0: &str, args: Vec<OsString>) -> i32 {
     let data = fileutil::load(&path);
     mem::drop(path);
     let data = match data {
-        Ok(Some(v)) => v,
-        Ok(None) => {
-            eprintln!("<1>Configuration file not found");
-            return 1;
-        }
+        Ok(v) => v,
         Err(e) => {
             eprintln!("<1>Failed to load config file: {}", e);
             return 1;

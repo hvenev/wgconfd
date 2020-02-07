@@ -5,7 +5,7 @@
 use crate::model;
 use std::ffi::{OsStr, OsString};
 use std::process::{Command, Stdio};
-use std::{env, io};
+use std::{env, fmt, io};
 
 pub struct Device {
     ifname: OsString,
@@ -46,27 +46,33 @@ impl Device {
         }
 
         let mut out = r.stdout;
-        if out.ends_with(b"\n") {
-            out.remove(out.len() - 1);
+        if out.last().copied() == Some(b'\n') {
+            out.pop();
         }
-        model::Key::from_bytes(&out)
+        model::Key::from_base64(&out)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid public key"))
     }
 
     pub fn apply_diff(&mut self, old: &model::Config, new: &model::Config) -> io::Result<()> {
         let mut proc = Self::wg_command();
+        proc.stdin(Stdio::piped());
+        proc.stdout(Stdio::null());
         proc.arg("set");
         proc.arg(&self.ifname);
+        let mut stdin = String::new();
 
         for (pubkey, conf) in &new.peers {
             let old_endpoint;
+            let old_psk;
             if let Some(old_peer) = old.peers.get(pubkey) {
                 if *old_peer == *conf {
                     continue;
                 }
                 old_endpoint = old_peer.endpoint;
+                old_psk = old_peer.psk.as_ref();
             } else {
                 old_endpoint = None;
+                old_psk = None;
             }
 
             proc.arg("peer");
@@ -82,9 +88,15 @@ impl Device {
                 }
             }
 
-            if let Some(psk) = &conf.psk {
+            if old_psk != conf.psk.as_ref() {
                 proc.arg("preshared-key");
-                proc.arg(psk.path());
+                proc.arg("-");
+                if let Some(psk) = conf.psk.as_ref() {
+                    use fmt::Write;
+                    writeln!(stdin, "{}", psk).unwrap();
+                } else {
+                    stdin.push('\n');
+                }
             }
 
             let mut ips = String::new();
@@ -117,7 +129,13 @@ impl Device {
             proc.arg("remove");
         }
 
-        let r = proc.status()?;
+        let mut proc = proc.spawn()?;
+        {
+            use io::Write;
+            proc.stdin.as_mut().unwrap().write_all(stdin.as_bytes())?;
+        }
+
+        let r = proc.wait()?;
         if !r.success() {
             return Err(io::Error::new(io::ErrorKind::Other, "child process failed"));
         }

@@ -82,22 +82,13 @@ pub fn update(path: &Path, data: &[u8]) -> io::Result<()> {
 }
 
 #[inline]
-pub fn load(path: &impl AsRef<Path>) -> io::Result<Option<Vec<u8>>> {
+pub fn load(path: &impl AsRef<Path>) -> io::Result<Vec<u8>> {
     _load(path.as_ref())
 }
 
-fn _load(path: &Path) -> io::Result<Option<Vec<u8>>> {
-    let mut file = match fs::File::open(&path) {
-        Ok(file) => file,
-        Err(e) => {
-            if e.kind() == io::ErrorKind::NotFound {
-                return Ok(None);
-            }
-            return Err(e);
-        }
-    };
-
+fn _load(path: &Path) -> io::Result<Vec<u8>> {
+    let mut file = fs::File::open(&path)?;
     let mut data = Vec::new();
     io::Read::read_to_end(&mut file, &mut data)?;
-    Ok(Some(data))
+    Ok(data)
 }

@@ -2,11 +2,12 @@
 //
 // Copyright 2019 Hristo Venev
 
+use crate::fileutil;
 use base64;
 use std::collections::HashMap;
-use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
+use std::{fmt, io};
 
 mod ip;
 pub use ip::*;
@@ -17,7 +18,7 @@ pub type KeyParseError = base64::DecodeError;
 pub struct Key([u8; 32]);
 
 impl Key {
-    pub fn from_bytes(s: &[u8]) -> Result<Self, KeyParseError> {
+    pub fn from_base64(s: &[u8]) -> Result<Self, KeyParseError> {
         let mut v = Self([0; 32]);
         let l = base64::decode_config_slice(s, base64::STANDARD, &mut v.0)?;
         if l != v.0.len() {
@@ -27,29 +28,10 @@ impl Key {
     }
 }
 
-#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq, Debug)]
-pub struct Secret(PathBuf);
-
-impl Secret {
-    #[inline]
-    pub fn new(path: PathBuf) -> Self {
-        Self(path)
-    }
-
-    #[inline]
-    pub fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
 impl fmt::Display for Key {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            base64::display::Base64Display::with_config(&self.0, base64::STANDARD)
-        )
+        base64::display::Base64Display::with_config(&self.0, base64::STANDARD).fmt(f)
     }
 }
 
@@ -57,7 +39,7 @@ impl FromStr for Key {
     type Err = KeyParseError;
     #[inline]
     fn from_str(s: &str) -> Result<Self, base64::DecodeError> {
-        Self::from_bytes(s.as_bytes())
+        Self::from_base64(s.as_bytes())
     }
 }
 
@@ -92,6 +74,52 @@ impl<'de> serde::Deserialize<'de> for Key {
         } else {
             serde::Deserialize::deserialize(de).map(Self)
         }
+    }
+}
+
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Clone, PartialEq, Eq)]
+pub struct Secret(Key);
+
+impl Secret {
+    #[inline]
+    pub fn from_file(path: &impl AsRef<Path>) -> io::Result<Option<Self>> {
+        Self::_from_file(path.as_ref())
+    }
+
+    fn _from_file(path: &Path) -> io::Result<Option<Self>> {
+        let mut data = fileutil::load(&path)?;
+        if data.last().copied() == Some(b'\n') {
+            data.pop();
+        }
+
+        if data.is_empty() {
+            return Ok(None);
+        }
+
+        let k = match Key::from_base64(&data) {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("failed to parse key: {}", e),
+                ))
+            }
+        };
+        Ok(Some(Self(k)))
+    }
+}
+
+impl fmt::Display for Secret {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl fmt::Debug for Secret {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <str as fmt::Display>::fmt("<secret key>", f)
     }
 }
 
