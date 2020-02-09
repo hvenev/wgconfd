@@ -2,7 +2,6 @@
 //
 // Copyright 2019 Hristo Venev
 
-use std::ffi::OsString;
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
@@ -56,6 +55,24 @@ impl Writer {
         })
     }
 
+    pub fn new_in(path: &Path) -> io::Result<Self> {
+        use rand::RngCore;
+        let mut rng = rand::thread_rng();
+        loop {
+            let i: u64 = rng.next_u64();
+            let mut p: PathBuf = path.into();
+            p.push(format!(".tmp.{:16x}", i));
+            match Self::new(p) {
+                Ok(v) => return Ok(v),
+                Err(e) => {
+                    if e.kind() != io::ErrorKind::AlreadyExists {
+                        return Err(e);
+                    }
+                }
+            }
+        }
+    }
+
     #[inline]
     pub fn file(&mut self) -> &mut fs::File {
         &mut self.file
@@ -74,9 +91,7 @@ impl Writer {
 }
 
 pub fn update(path: &Path, data: &[u8]) -> io::Result<()> {
-    let mut tmp = OsString::from(path);
-    tmp.push(".tmp");
-    let mut tmp = Writer::new(PathBuf::from(tmp))?;
+    let mut tmp = Writer::new_in(path.parent().unwrap())?;
     io::Write::write_all(tmp.file(), data)?;
     tmp.sync_done()?.rename_to(path)
 }
