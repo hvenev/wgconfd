@@ -4,7 +4,7 @@
 
 [package]
 name = "wgconfd"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2018"
 authors = [ "Hristo Venev <hristo@venev.name>" ]
 license = "LGPL-3.0-or-later"
