@@ -35,11 +35,11 @@ impl Manager {
             io::Error::new(io::ErrorKind::InvalidInput, "runtime directory required")
         })?;
 
-        let mut state_path = runtime_directory;
+        let mut state_path = runtime_directory.clone();
         state_path.push("state.json");
 
         let mut m = Self {
-            dev: wg::Device::open(ifname)?,
+            dev: wg::Device::open(ifname, runtime_directory)?,
             global_config: c.global,
             sources: vec![],
             current: model::Config::empty(),

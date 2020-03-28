@@ -25,6 +25,11 @@ impl Drop for Temp {
 
 impl Temp {
     #[inline]
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    #[inline]
     pub fn leave(mut self) -> PathBuf {
         mem::replace(&mut self.path, PathBuf::new())
     }
