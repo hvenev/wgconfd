@@ -4,7 +4,7 @@
 
 [package]
 name = "wgconfd"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2018"
 authors = [ "Hristo Venev <hristo@venev.name>" ]
 license = "LGPL-3.0-or-later"
@@ -16,7 +16,7 @@ keywords = [ "wireguard" ]
 
 [dependencies]
 arrayref = { version = "0.3.6" }
-base64 = { version = "0.11.0" }
+base64 = { version = "0.12.0" }
 serde = { version = "1.0" }
 serde_derive = { version = "1.0" }
 serde_json = { version = "1.0" }
