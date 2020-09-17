@@ -56,7 +56,7 @@ It is possible to override some options for a specific public key, and/or to res
 [peer."yIOdSFrFQ1WPYS6IUWCsRjzw2Iqq0HMcyVVEXu5z+nM="]
 source = "remote2"
 endpoint = "[2001:db8::6]:10656"
-psk = "QJmzt2PpKx8g98qrOtsNR4tB1bik+fMSabNNXCC5OUU="
+psk = "/path/to/psk/file"
 keepalive = 20
 ```
 

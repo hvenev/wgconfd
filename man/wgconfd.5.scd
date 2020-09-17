@@ -91,13 +91,7 @@ Sources are defined in *[[source]]* sections. The following options are availabl
 # PEER SECTIONS
 
 In some cases one may want to override some settings for individual peers.
-This can be achieved through *[[peer]]* sections:
-
-*public_key*
-	The public key of the peer for which the overrides apply, as a base64
-	encoded string.
-
-	Required.
+This can be achieved through *[peer."public_key"]* sections:
 
 *source*
 	If specified, ignore attempts by other sources to define this peer. Note
@@ -124,5 +118,5 @@ This can be achieved through *[[peer]]* sections:
 	Default: the keepalive value from the source, or infinite if not set,
 	restricted by *min_keepalive* and *max_keepalive*
 
-Note that having a *[[peer]]* section is not enough to create a peer - it must
+Note that having a *[peer.*]* section is not enough to create a peer. It must
 also exist in one of the sources.
